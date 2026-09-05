@@ -1,6 +1,6 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { ajouterSuppression, genererAuditExport } from "@/modules/conformite/presentation/conformite-actions";
+import { ajouterSuppression, genererAuditExport, supprimerSuppression } from "@/modules/conformite/presentation/conformite-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/field";
@@ -8,6 +8,7 @@ import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ShieldCheckIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function ConformitePage() {
   const { conformite } = getContainer();
@@ -37,6 +38,7 @@ export default function ConformitePage() {
                   <th className="py-2">Email</th>
                   <th>Origine</th>
                   <th>Date</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -45,6 +47,13 @@ export default function ConformitePage() {
                     <td className="py-2 font-medium text-slate-900">{entree.email}</td>
                     <td className="text-slate-500">{entree.origine}</td>
                     <td className="text-slate-400">{entree.horodatage}</td>
+                    <td className="text-right">
+                      <DeleteButton
+                        action={supprimerSuppression}
+                        fields={{ suppressionId: entree.id }}
+                        confirmMessage={`Retirer ${entree.email} du registre de suppression ? Ce contact redeviendra contactable par toutes les campagnes — a reserver a la correction d'une entree erronee.`}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

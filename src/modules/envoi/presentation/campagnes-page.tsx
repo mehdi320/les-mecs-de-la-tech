@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { creerCampagne, traiterCampagne } from "@/modules/envoi/presentation/campagne-actions";
+import { creerCampagne, supprimerCampagne, traiterCampagne } from "@/modules/envoi/presentation/campagne-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card, CardTitle } from "@/shared/ui/card";
 import { Field, Input, Select } from "@/shared/ui/field";
@@ -9,6 +9,7 @@ import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { CampaignIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function CampagnesPage() {
   const { envoi, verification } = getContainer();
@@ -102,12 +103,19 @@ export default function CampagnesPage() {
                     {enrollments.length} enrollments <Badge>{campagne.statut}</Badge>
                   </p>
                 </div>
-                <form action={traiterCampagne}>
-                  <input type="hidden" name="campagneId" value={campagne.id} />
-                  <SubmitButton size="sm" variant="secondary" pendingText="Envoi…" disabled={enAttente === 0}>
-                    Traiter les envois en attente ({enAttente})
-                  </SubmitButton>
-                </form>
+                <div className="flex items-center gap-3">
+                  <form action={traiterCampagne}>
+                    <input type="hidden" name="campagneId" value={campagne.id} />
+                    <SubmitButton size="sm" variant="secondary" pendingText="Envoi…" disabled={enAttente === 0}>
+                      Traiter les envois en attente ({enAttente})
+                    </SubmitButton>
+                  </form>
+                  <DeleteButton
+                    action={supprimerCampagne}
+                    fields={{ campagneId: campagne.id }}
+                    confirmMessage={`Supprimer cette campagne et ses ${enrollments.length} enrollments ?`}
+                  />
+                </div>
               </div>
               {enrollments.length > 0 && (
                 <table className="mt-4 w-full text-sm">

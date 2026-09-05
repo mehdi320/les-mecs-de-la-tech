@@ -44,3 +44,12 @@ export async function changerStatutVariante(formData: FormData): Promise<void> {
   envoi.sequenceEtapeVariantes.updateStatut(varianteId, statut);
   revalidatePath("/sequences");
 }
+
+export async function supprimerVariante(formData: FormData): Promise<boolean> {
+  const varianteId = String(formData.get("varianteId") ?? "");
+  if (!varianteId) return false;
+  const { envoi } = getContainer();
+  envoi.sequenceEtapeVariantes.delete(varianteId);
+  revalidatePath("/sequences");
+  return true;
+}

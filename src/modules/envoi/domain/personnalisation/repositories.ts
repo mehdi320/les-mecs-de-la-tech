@@ -14,4 +14,5 @@ export interface SequenceEtapeVarianteRepository {
     champsPersonnalisationRequis: string[];
   }): SequenceEtapeVariante;
   updateStatut(id: string, statut: StatutVariante): void;
+  delete(id: string): void;
 }

@@ -273,3 +273,41 @@ Le point 7 bloque specifiquement le module de scoring de variantes
   outboundDM-max) ; les toasts de succes/erreur restent a faire —
   seul l'etat de chargement des boutons a ete traite pour le retour
   d'action.
+
+### Session 6 — suppression (CRUD complet sur les entites principales)
+- Aucune entite n'etait supprimable depuis l'UI avant cette session
+  (seul "exclure de la rotation" existait pour les variantes, un
+  statut, pas une suppression). Ajout de `delete()`/`supprimer()` aux
+  repositories SQLite et d'un bouton de suppression (avec confirmation
+  navigateur) pour : mailboxes, domaines, sequences (cascade etapes +
+  variantes en base), etapes (cascade variantes), variantes A/B (en
+  plus du statut "perdante", qui reste utile pour exclure sans
+  perdre l'historique), listes importees (cascade contacts,
+  resultats de verification, et enrollments de campagne bases sur ces
+  contacts — signale dans le message de confirmation), campagnes
+  (cascade enrollments + evenements d'envoi), entrees du registre de
+  suppression (confirmation renforcee : le contact redevient
+  contactable par toutes les campagnes du client).
+- `src/shared/ui/delete-button.tsx` (client component) : appelle
+  l'action serveur directement (pas de `<form action>`), ce qui permet
+  de lire son retour et d'afficher "suppression bloquee" quand une
+  contrainte de cle etrangere empeche la suppression (mailbox ou
+  campagne encore reference par des envois/suppressions historiques,
+  cf. `src/shared/integration/delete-guard.ts`) — premiere brique de
+  retour d'erreur cote UI, avant le systeme de toast general qui reste
+  a construire.
+- Bug de test trouve en verifiant (pas dans l'app) : mes premiers
+  scripts Playwright ciblaient les cartes par classes Tailwind
+  generiques (`div.rounded-lg.border`) partagees entre le conteneur
+  d'etape et les cartes de variantes, menant a des suppressions
+  ambigues dans le test lui-meme. Reproduit avec des selecteurs
+  precis (classes completes) : suppression d'une seule variante
+  laisse les autres intactes, suppression d'une etape ne supprime que
+  ses variantes, suppression d'une sequence supprime tout — confirme
+  correct cote application.
+- Volontairement laisse de cote : pas de suppression au niveau d'un
+  contact individuel dans une liste (seule la liste entiere se
+  supprime) — ajouter une ligne d'action par contact dans un tableau
+  potentiellement long n'apportait pas assez de valeur pour le temps
+  investi cette session ; a reconsiderer si le besoin se confirme.
+- `npm run build` et `npm run typecheck` passent sans erreur.

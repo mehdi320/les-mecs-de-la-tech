@@ -67,3 +67,13 @@ export async function traiterCampagne(formData: FormData): Promise<void> {
 
   revalidatePath("/campagnes");
 }
+
+export async function supprimerCampagne(formData: FormData): Promise<boolean> {
+  const campagneId = String(formData.get("campagneId") ?? "");
+  if (!campagneId) return false;
+
+  const { envoi } = getContainer();
+  const ok = envoi.campagnes.delete(campagneId);
+  revalidatePath("/campagnes");
+  return ok;
+}

@@ -12,6 +12,24 @@ export async function creerSequence(formData: FormData): Promise<void> {
   revalidatePath("/sequences");
 }
 
+export async function supprimerSequence(formData: FormData): Promise<boolean> {
+  const sequenceId = String(formData.get("sequenceId") ?? "");
+  if (!sequenceId) return false;
+  const { envoi } = getContainer();
+  envoi.sequences.delete(sequenceId);
+  revalidatePath("/sequences");
+  return true;
+}
+
+export async function supprimerEtape(formData: FormData): Promise<boolean> {
+  const etapeId = String(formData.get("etapeId") ?? "");
+  if (!etapeId) return false;
+  const { envoi } = getContainer();
+  envoi.sequences.deleteEtape(etapeId);
+  revalidatePath("/sequences");
+  return true;
+}
+
 export async function ajouterEtape(formData: FormData): Promise<void> {
   const sequenceId = String(formData.get("sequenceId") ?? "");
   const sujet = String(formData.get("sujet") ?? "").trim();

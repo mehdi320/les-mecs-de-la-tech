@@ -19,6 +19,16 @@ export async function ajouterSuppression(formData: FormData): Promise<void> {
   revalidatePath("/conformite");
 }
 
+export async function supprimerSuppression(formData: FormData): Promise<boolean> {
+  const suppressionId = String(formData.get("suppressionId") ?? "");
+  if (!suppressionId) return false;
+
+  const { conformite } = getContainer();
+  conformite.suppressions.supprimer(suppressionId);
+  revalidatePath("/conformite");
+  return true;
+}
+
 export async function genererAuditExport(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return;

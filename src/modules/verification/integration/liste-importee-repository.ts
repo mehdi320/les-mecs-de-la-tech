@@ -59,4 +59,8 @@ export class SqliteListeImporteeRepository implements ListeImporteeRepository {
         .run(statut, nbContacts, id);
     }
   }
+
+  delete(id: string): void {
+    this.db.prepare("DELETE FROM listes_importees WHERE id = ?").run(id);
+  }
 }

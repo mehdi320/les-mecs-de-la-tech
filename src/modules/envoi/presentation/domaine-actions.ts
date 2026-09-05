@@ -28,3 +28,13 @@ export async function reverifierDomaine(formData: FormData): Promise<void> {
   envoi.domaines.setAuthStatuts(domaineId, statuts);
   revalidatePath("/domaines");
 }
+
+export async function supprimerDomaine(formData: FormData): Promise<boolean> {
+  const domaineId = String(formData.get("domaineId") ?? "");
+  if (!domaineId) return false;
+
+  const { envoi } = getContainer();
+  envoi.domaines.delete(domaineId);
+  revalidatePath("/domaines");
+  return true;
+}

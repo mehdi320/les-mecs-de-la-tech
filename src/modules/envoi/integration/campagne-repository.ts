@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { Campagne, CampagneStatut } from "@/modules/envoi/domain/entities";
 import type { CampagneRepository } from "@/modules/envoi/domain/repositories";
+import { supprimerSiPossible } from "@/shared/integration/delete-guard";
 
 interface CampagneRow {
   id: string;
@@ -75,5 +76,11 @@ export class SqliteCampagneRepository implements CampagneRepository {
         input.seuilScoreRisqueMin,
       );
     return this.findById(id)!;
+  }
+
+  delete(id: string): boolean {
+    return supprimerSiPossible(() => {
+      this.db.prepare("DELETE FROM campagnes WHERE id = ?").run(id);
+    });
   }
 }

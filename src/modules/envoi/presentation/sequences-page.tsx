@@ -1,7 +1,7 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { ajouterEtape, creerSequence } from "@/modules/envoi/presentation/sequence-actions";
-import { changerStatutVariante, genererVariantesPourEtape } from "@/modules/envoi/presentation/variante-actions";
+import { ajouterEtape, creerSequence, supprimerEtape, supprimerSequence } from "@/modules/envoi/presentation/sequence-actions";
+import { changerStatutVariante, genererVariantesPourEtape, supprimerVariante } from "@/modules/envoi/presentation/variante-actions";
 import { STRUCTURE_LABELS, TONE_LABELS } from "@/modules/envoi/domain/personnalisation/entities";
 import { lintCorps, lintSujet } from "@/modules/envoi/domain/personnalisation/copywriting-rules";
 import { PageHeader } from "@/shared/ui/page-header";
@@ -11,6 +11,7 @@ import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { AlertTriangleIcon, SequenceIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function SequencesPage() {
   const { envoi } = getContainer();
@@ -42,7 +43,14 @@ export default function SequencesPage() {
             <Card key={sequence.id}>
               <div className="flex items-center justify-between">
                 <CardTitle>{sequence.nom}</CardTitle>
-                <Badge>{sequence.statut}</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge>{sequence.statut}</Badge>
+                  <DeleteButton
+                    action={supprimerSequence}
+                    fields={{ sequenceId: sequence.id }}
+                    confirmMessage={`Supprimer la sequence "${sequence.nom}" et toutes ses etapes/variantes ?`}
+                  />
+                </div>
               </div>
 
               <div className="mt-4 space-y-4">
@@ -54,6 +62,11 @@ export default function SequencesPage() {
                         <p className="text-sm font-semibold text-slate-800">
                           Etape {etape.ordre + 1} <span className="font-normal text-slate-400">— J+{etape.delaiJours}</span>
                         </p>
+                        <DeleteButton
+                          action={supprimerEtape}
+                          fields={{ etapeId: etape.id }}
+                          confirmMessage="Supprimer cette etape et ses variantes ?"
+                        />
                       </div>
                       <p className="mt-1 text-sm text-slate-600">{etape.sujet}</p>
                       <p className="mt-1 text-xs text-slate-400">
@@ -105,6 +118,12 @@ export default function SequencesPage() {
                                       exclure de la rotation
                                     </button>
                                   </form>
+                                  <DeleteButton
+                                    action={supprimerVariante}
+                                    fields={{ varianteId: variante.id }}
+                                    confirmMessage={`Supprimer definitivement la variante ${variante.nom} ?`}
+                                    label="supprimer"
+                                  />
                                 </div>
                               </div>
                             );

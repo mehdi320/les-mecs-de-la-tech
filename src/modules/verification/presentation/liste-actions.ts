@@ -38,3 +38,13 @@ export async function lancerVerification(formData: FormData): Promise<void> {
 
   revalidatePath("/listes");
 }
+
+export async function supprimerListe(formData: FormData): Promise<boolean> {
+  const listeId = String(formData.get("listeId") ?? "");
+  if (!listeId) return false;
+
+  const { verification } = getContainer();
+  verification.listesImportees.delete(listeId);
+  revalidatePath("/listes");
+  return true;
+}

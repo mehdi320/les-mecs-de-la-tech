@@ -55,4 +55,8 @@ export class SqliteSuppressionRepository implements SuppressionRepository {
       .all(clientId) as SuppressionRow[];
     return rows.map(toEntree);
   }
+
+  supprimer(id: string): void {
+    this.db.prepare("DELETE FROM suppression_entrees WHERE id = ?").run(id);
+  }
 }

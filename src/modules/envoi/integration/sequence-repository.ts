@@ -74,4 +74,12 @@ export class SqliteSequenceRepository implements SequenceRepository {
       .all(sequenceId) as SequenceEtapeRow[];
     return rows.map(toEtape);
   }
+
+  delete(id: string): void {
+    this.db.prepare("DELETE FROM sequences WHERE id = ?").run(id);
+  }
+
+  deleteEtape(etapeId: string): void {
+    this.db.prepare("DELETE FROM sequence_etapes WHERE id = ?").run(etapeId);
+  }
 }

@@ -28,3 +28,13 @@ export async function connecterMailboxSmtp(formData: FormData): Promise<void> {
 
   revalidatePath("/mailboxes");
 }
+
+export async function supprimerMailbox(formData: FormData): Promise<boolean> {
+  const mailboxId = String(formData.get("mailboxId") ?? "");
+  if (!mailboxId) return false;
+
+  const { envoi } = getContainer();
+  const ok = envoi.mailboxes.delete(mailboxId);
+  revalidatePath("/mailboxes");
+  return ok;
+}

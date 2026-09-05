@@ -1,6 +1,6 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { connecterMailboxSmtp } from "@/modules/envoi/presentation/mailbox-actions";
+import { connecterMailboxSmtp, supprimerMailbox } from "@/modules/envoi/presentation/mailbox-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card } from "@/shared/ui/card";
 import { Field, Input } from "@/shared/ui/field";
@@ -8,6 +8,7 @@ import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { MailboxIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function MailboxesPage() {
   const { envoi } = getContainer();
@@ -61,6 +62,7 @@ export default function MailboxesPage() {
                 <th className="py-2">Email</th>
                 <th>Fournisseur</th>
                 <th>Statut</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -70,6 +72,13 @@ export default function MailboxesPage() {
                   <td className="text-slate-500">{mailbox.provider}</td>
                   <td>
                     <Badge>{mailbox.statutConnexion}</Badge>
+                  </td>
+                  <td className="text-right">
+                    <DeleteButton
+                      action={supprimerMailbox}
+                      fields={{ mailboxId: mailbox.id }}
+                      confirmMessage={`Supprimer la mailbox ${mailbox.email} ?`}
+                    />
                   </td>
                 </tr>
               ))}

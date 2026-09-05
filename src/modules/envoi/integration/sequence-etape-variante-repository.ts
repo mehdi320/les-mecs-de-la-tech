@@ -80,4 +80,8 @@ export class SqliteSequenceEtapeVarianteRepository implements SequenceEtapeVaria
   updateStatut(id: string, statut: StatutVariante): void {
     this.db.prepare("UPDATE sequence_etape_variantes SET statut = ? WHERE id = ?").run(statut, id);
   }
+
+  delete(id: string): void {
+    this.db.prepare("DELETE FROM sequence_etape_variantes WHERE id = ?").run(id);
+  }
 }

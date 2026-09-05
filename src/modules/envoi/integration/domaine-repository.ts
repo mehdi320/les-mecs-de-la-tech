@@ -55,4 +55,8 @@ export class SqliteDomaineRepository implements DomaineRepository {
       )
       .run(statuts.spf, statuts.dkim, statuts.dmarc, id);
   }
+
+  delete(id: string): void {
+    this.db.prepare("DELETE FROM domaines WHERE id = ?").run(id);
+  }
 }

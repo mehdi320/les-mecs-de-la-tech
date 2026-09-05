@@ -1,6 +1,6 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { importerListe, lancerVerification } from "@/modules/verification/presentation/liste-actions";
+import { importerListe, lancerVerification, supprimerListe } from "@/modules/verification/presentation/liste-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card, CardTitle } from "@/shared/ui/card";
 import { Field, Input, Textarea } from "@/shared/ui/field";
@@ -9,6 +9,7 @@ import { Badge } from "@/shared/ui/badge";
 import { RiskScore } from "@/shared/ui/risk-score";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ListImportIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function ListesPage() {
   const { verification } = getContainer();
@@ -64,14 +65,21 @@ export default function ListesPage() {
                     {liste.nbContacts} contacts <Badge>{liste.statutVerification}</Badge>
                   </p>
                 </div>
-                {liste.statutVerification !== "terminee" && (
-                  <form action={lancerVerification}>
-                    <input type="hidden" name="listeId" value={liste.id} />
-                    <SubmitButton size="sm" pendingText="Verification…">
-                      Lancer la verification
-                    </SubmitButton>
-                  </form>
-                )}
+                <div className="flex items-center gap-3">
+                  {liste.statutVerification !== "terminee" && (
+                    <form action={lancerVerification}>
+                      <input type="hidden" name="listeId" value={liste.id} />
+                      <SubmitButton size="sm" pendingText="Verification…">
+                        Lancer la verification
+                      </SubmitButton>
+                    </form>
+                  )}
+                  <DeleteButton
+                    action={supprimerListe}
+                    fields={{ listeId: liste.id }}
+                    confirmMessage={`Supprimer la liste "${liste.nom}" et ses ${liste.nbContacts} contacts ? Les enrollments de campagne bases sur ces contacts seront aussi supprimes.`}
+                  />
+                </div>
               </div>
 
               {liste.statutVerification === "terminee" && (

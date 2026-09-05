@@ -1,6 +1,6 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
-import { ajouterDomaine, reverifierDomaine } from "@/modules/envoi/presentation/domaine-actions";
+import { ajouterDomaine, reverifierDomaine, supprimerDomaine } from "@/modules/envoi/presentation/domaine-actions";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Card } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/field";
@@ -9,6 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { GlobeIcon } from "@/shared/ui/icons";
+import { DeleteButton } from "@/shared/ui/delete-button";
 
 export default function DomainesPage() {
   const { envoi } = getContainer();
@@ -62,13 +63,20 @@ export default function DomainesPage() {
                     <Badge>{domaine.dmarcStatut}</Badge>
                   </td>
                   <td className="text-right">
-                    <form action={reverifierDomaine}>
-                      <input type="hidden" name="domaineId" value={domaine.id} />
-                      <input type="hidden" name="nomDomaine" value={domaine.nomDomaine} />
-                      <Button type="submit" variant="ghost" size="sm">
-                        revalider
-                      </Button>
-                    </form>
+                    <div className="flex items-center justify-end gap-3">
+                      <form action={reverifierDomaine}>
+                        <input type="hidden" name="domaineId" value={domaine.id} />
+                        <input type="hidden" name="nomDomaine" value={domaine.nomDomaine} />
+                        <Button type="submit" variant="ghost" size="sm">
+                          revalider
+                        </Button>
+                      </form>
+                      <DeleteButton
+                        action={supprimerDomaine}
+                        fields={{ domaineId: domaine.id }}
+                        confirmMessage={`Supprimer le domaine ${domaine.nomDomaine} ?`}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

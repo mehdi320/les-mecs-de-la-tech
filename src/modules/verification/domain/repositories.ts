@@ -10,6 +10,8 @@ export interface ListeImporteeRepository {
   findById(id: string): ListeImportee | null;
   create(input: { clientId: string; nom: string; sourceDeclaree: string | null }): ListeImportee;
   updateStatut(id: string, statut: StatutVerificationListe, nbContacts?: number): void;
+  /** Cascade en base vers les contacts, leurs resultats de verification, et leurs enrollments. */
+  delete(id: string): void;
 }
 
 export interface ContactRepository {

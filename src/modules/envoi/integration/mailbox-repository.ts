@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { Mailbox, MailboxProvider, MailboxStatut } from "@/modules/envoi/domain/entities";
 import type { MailboxRepository } from "@/modules/envoi/domain/repositories";
+import { supprimerSiPossible } from "@/shared/integration/delete-guard";
 
 interface MailboxRow {
   id: string;
@@ -78,5 +79,11 @@ export class SqliteMailboxRepository implements MailboxRepository {
       | { oauth_tokens_ref: string | null }
       | undefined;
     return row?.oauth_tokens_ref ?? null;
+  }
+
+  delete(id: string): boolean {
+    return supprimerSiPossible(() => {
+      this.db.prepare("DELETE FROM mailboxes WHERE id = ?").run(id);
+    });
   }
 }
