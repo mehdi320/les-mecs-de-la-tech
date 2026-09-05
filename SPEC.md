@@ -222,39 +222,45 @@ A trancher avant implementation (voir aussi section 7) :
   l'export d'audit suffisent a porter l'argument de vente #1 en V1 ;
   le generateur de texte est un raffinement, pas un bloquant).
 
-**V2 = Module Delivrabilite et Boucle complet** (IP dediee, warmup,
-diagnostic par cause, webhooks de conversion, recalcul de score par
-segment) + generateur de notification multilingue du module
-Conformite.
+**V2 = Module Delivrabilite et Boucle**, moins l'IP dediee (retiree du
+perimetre V2 par defaut elle-meme, cf. ci-dessous) : warmup, diagnostic
+par cause, webhooks de conversion, recalcul de score par segment +
+generateur de notification multilingue du module Conformite.
 
-Justification : les modules V1 ne dependent d'aucun fournisseur
-d'infrastructure d'envoi tiers non encore choisi (IP dediee), et
-couvrent deja le trou concurrentiel le plus differenciant (#1,
-conformite comme argument de vente) et le moins couteux techniquement.
-Le suivi SPF/DKIM/DMARC de base (lecture seule, sans warmup ni IP
-dediee) peut migrer en V1 si le temps le permet, car il est un
-prerequis de fiabilite de l'Envoi, pas une fonctionnalite V2 a part
-entiere — a confirmer en cours de sprint plutot qu'a trancher ici.
+**IP dediee : retiree du MVP, tranche.** Le trou concurrentiel #4
+n'est pas construit en V1 ni promis en V2 par defaut. Il sera
+reevalue en V2 uniquement sur demande client explicite — c'est-a-dire
+qu'aucun second chemin d'envoi (relais SMTP propre, fournisseur d'IP
+dediee) n'est developpe tant qu'un client n'en fait pas la demande.
+Consequence directe : le produit n'a pas besoin en V1 d'evaluer ou de
+contracter avec un fournisseur d'infrastructure d'envoi tiers — tout
+l'envoi V1 passe par les mailboxes du client (OAuth Google Workspace
+/ Microsoft 365, ou SMTP/IMAP generique), dont l'IP d'envoi reste
+celle du fournisseur du client. Ancienne decision bloquante #1/#2
+(ci-dessous) fermee par ce choix.
+
+Justification : les modules V1 ne dependent plus d'aucun fournisseur
+d'infrastructure d'envoi tiers, et couvrent deja le trou concurrentiel
+le plus differenciant (#1, conformite comme argument de vente) et le
+moins couteux techniquement. Le suivi SPF/DKIM/DMARC de base (lecture
+seule, sans warmup ni IP dediee) peut migrer en V1 si le temps le
+permet, car il est un prerequis de fiabilite de l'Envoi, pas une
+fonctionnalite V2 a part entiere — a confirmer en cours de sprint
+plutot qu'a trancher ici.
 
 ---
 
 ## 7. Decisions bloquantes avant la premiere ligne de code
 
-1. **Mode de connexion des mailboxes (partiellement tranche).**
-   Retenu : OAuth Google Workspace + Microsoft 365 (Graph API) comme
-   chemins principaux, SMTP/IMAP generique en repli. **Consequence
-   architecturale non triviale a valider** : si l'essentiel de
-   l'envoi passe par les mailboxes du client (Gmail/O365), l'IP
-   d'envoi est celle de Google/Microsoft, pas la notre — l'**option
-   IP dediee (trou concurrentiel #4) ne peut alors s'appliquer qu'a
-   un second chemin d'envoi que le produit devrait operer lui-meme**
-   (relais SMTP en marque blanche ou infra dediee cold-email). Question
-   ouverte, non tranchee : est-ce qu'on construit ce second chemin
-   en V2, et avec quel fournisseur (SES/Postmark/Sendgrid en marque
-   blanche vs partenaire specialise cold-outreach vs self-hosted) ?
-   Sans reponse, le trou #4 reste un slogan sans implementation.
-2. **Fournisseur d'IP dediee** : decoule directement du point 1, a
-   evaluer une fois le point 1 tranche.
+1. ~~Mode de connexion des mailboxes et consequence sur l'IP dediee~~
+   — **tranche** : OAuth Google Workspace + Microsoft 365 (Graph API)
+   comme chemins principaux, SMTP/IMAP generique en repli ; IP dediee
+   retiree du MVP et du perimetre V2 par defaut, reevaluee en V2
+   uniquement sur demande client (cf. section 6). Aucun second chemin
+   d'envoi ni fournisseur d'infrastructure d'envoi tiers a evaluer
+   pour l'instant.
+2. ~~Fournisseur d'IP dediee~~ — **sans objet pour l'instant**, a
+   rouvrir seulement si un client demande l'option IP dediee en V2.
 3. **Chiffres exacts des paliers de volume** (section 5) et definition
    facturable d'un "email envoye".
 4. **Scope exact du "SMTP generique"** : jusqu'ou va-t-on dans la
