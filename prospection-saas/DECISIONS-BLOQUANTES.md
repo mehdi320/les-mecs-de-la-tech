@@ -1,6 +1,6 @@
 # Décisions bloquantes avant la première ligne de code
 
-Trois décisions. Tant qu'elles ne sont pas tranchées, aucun code applicatif ne doit être écrit — seuls `SPEC.md`, `ARBORESCENCE.md` et ce document existent à ce stade.
+**Statut : verrouillées par défaut le 2026-09-05** pour permettre au code d'avancer (pivot marché US, aspect juridique RGPD mis de côté pour ce MVP — voir PASSATION.md section 1). Les trois décisions ci-dessous ont été tranchées sur la recommandation de cadrage de chaque section, pas sur un nouvel arbitrage business (devis fournisseurs, test de précision réel) — ce travail reste à faire, voir "Ce qu'il reste à faire" sous chaque décision.
 
 ---
 
@@ -14,9 +14,9 @@ Trois décisions. Tant qu'elles ne sont pas tranchées, aucun code applicatif ne
 | Déléguer à un actor Apify tiers | Couvre des cas qu'Apollo ne couvre pas (recherche par profil précis, données non indexées par Apollo) | Le point le plus exposé légalement du produit — voir `SPEC.md` section 5.1 et 5.2, deux sanctions CNIL sur ce pattern précis (Kaspr 240k€, Nestor 20k€) |
 | Construire un scraper interne | Contrôle total, pas de dépendance externe | Expose directement l'éditeur du produit (et non plus un prestataire) aux conditions d'utilisation de LinkedIn et au RGPD, sans aucun avis juridique reçu à ce jour |
 
-**Recommandation de cadrage** (déjà actée dans le brief initial, reprise ici pour mémoire) : déléguer en V1, Apollo API en premier choix, ne pas construire en interne. Reste à trancher : Apollo seul, ou Apollo + un actor Apify en complément.
+**Choix retenu (2026-09-05) : Apollo API seul, pas d'actor Apify.** C'est ce que le code implémente (`modules/extraction/integration/apollo-client.ts`). Pas de scraper interne.
 
-**Ce qui manque pour trancher définitivement** : l'avis juridique externe sur `SPEC.md` section 5.1/5.2. Une décision technique prise avant cet avis reste provisoire.
+**Ce qui reste à faire** : si Apollo ne couvre pas un besoin réel (secteur ou pays mal indexé), réévaluer un actor Apify à ce moment-là plutôt que par anticipation. L'avis juridique externe sur `SPEC.md` section 5.1/5.2 reste à obtenir avant tout lancement commercial sur un marché où le RGPD s'applique ; pour le marché US actuel, voir PASSATION.md section 1 sur le cadre équivalent (CAN-SPAM, non recherché à ce stade).
 
 ---
 
@@ -26,10 +26,12 @@ Trois décisions. Tant qu'elles ne sont pas tranchées, aucun code applicatif ne
 
 **Ce qui différencie les candidats sur le point qui compte pour ce produit** : MillionVerifier et Bouncer ne facturent pas de supplément sur les résultats catch-all — c'est-à-dire sur exactement les cas où le score de risque nuancé (différenciateur n°1 du produit) apporte de la valeur. ZeroBounce facture ce cas en supplément. NeverBounce et Kickbox n'ont pas été détaillés sur ce point précis par la recherche effectuée — à vérifier en devis direct avant de choisir.
 
-**Ce qu'il reste à faire pour trancher** :
-1. Devis direct auprès de MillionVerifier, Bouncer, NeverBounce et Kickbox sur le traitement du catch-all et le volume prévu en V1.
-2. Test réel de précision sur un échantillon de contacts représentatif du secteur ciblé (BTP, PME), pas seulement sur les benchmarks marketing des fournisseurs.
-3. Choisir un fournisseur primaire (le moins cher pour le flux normal) et un fournisseur secondaire (déclenché uniquement en waterfall sur catch-all ou score ambigu).
+**Choix retenu (2026-09-05) : MillionVerifier en primaire, Bouncer en secondaire (waterfall déclenché sur catch-all ou résultat incertain).** C'est ce que le code implémente (`modules/verification/integration/millionverifier-client.ts`, `bouncer-client.ts`, `domain/waterfall-policy.ts`).
+
+**Ce qu'il reste à faire** : aucune clé API réelle testée, aucun devis obtenu, aucun test de précision sur un échantillon réel. Avant le premier client payant :
+1. Devis direct auprès de MillionVerifier et Bouncer sur le volume réel prévu.
+2. Test de précision sur un échantillon représentatif du secteur ciblé, pas seulement les benchmarks marketing.
+3. Revalider les contrats d'API contre la documentation live (voir PASSATION.md section 3) — écrits à partir de la doc publique, jamais appelés en conditions réelles.
 
 ---
 
@@ -47,4 +49,6 @@ Trois décisions. Tant qu'elles ne sont pas tranchées, aucun code applicatif ne
 
 **Point d'attention avant de valider ce périmètre** : la promesse de différenciation du produit repose sur quatre piliers (score nuancé, délivrabilité pilotée, conformité native, boucle fermée). Un MVP à deux piliers sur quatre (Vérification + Conformité) est cohérent pour sortir vite, mais le message commercial en V1 ne doit pas promettre les quatre à la fois tant que Délivrabilité et Boucle ne sont pas construites — à aligner avec le discours de vente dès le lancement bêta.
 
-**Ce qu'il reste à faire pour trancher** : confirmer que ce périmètre reste valable une fois l'avis juridique reçu — si l'avis conclut que la Conformité doit inclure un mécanisme d'article 14 non prévu dans le brief initial (voir `SPEC.md` section 5.4), le périmètre V1 du module Conformité s'élargit d'autant, et ça vaut le coup de le savoir avant d'estimer la V1, pas après.
+**Choix retenu (2026-09-05) : ce périmètre est celui codé.** Extraction, Vérification et Conformité existent en code fonctionnel (voir PASSATION.md section 3). Conformité a été adaptée au marché US (pas de `LegalBasisRecord`/`Article14NoticeRecord` RGPD, voir `DataProvenanceRecord`) — donc plus légère que ce que prévoyait le SPEC.md initial, pas plus lourde. Délivrabilité et Boucle restent à l'état de plan dans `ARBORESCENCE.md`, zéro code.
+
+**Ce qu'il reste à faire** : si le produit s'ouvre un jour à l'Europe, reprendre l'avis juridique RGPD (`SPEC.md` section 5) et réévaluer si le module Conformité doit s'enrichir (article 14 notamment) avant d'y vendre.
