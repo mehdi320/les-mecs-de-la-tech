@@ -97,6 +97,8 @@ bout en bout sur le dev server local.
 | Connexion des mailboxes | OAuth Google Workspace + Microsoft 365 (Graph API), SMTP/IMAP generique en repli | SPEC.md section 7, point 1 |
 | IP dediee | Retiree du MVP et du perimetre V2 par defaut ; reevaluee en V2 uniquement sur demande client explicite | SPEC.md section 6 |
 | Position juridique | Client = responsable de traitement sur sa liste ; produit = sous-traitant art. 28 RGPD | SPEC.md section 2 |
+| Personnalisation V1 | Variantes A/B (objet + corps) generees uniquement a partir des colonnes du CSV client, jamais de scraping LinkedIn (direct ou via lien profil) | SPEC.md section 9 |
+| Enrichissement tiers | Pas de scraping interne ; integration optionnelle Clay/Apollo/Cognism documentee pour la V2, non developpee maintenant | SPEC.md section 9.5 |
 
 ## Decisions bloquantes en attente (a trancher avant mise en prod)
 
@@ -110,10 +112,15 @@ et 2 fermes par la decision IP dediee ci-dessus) :
    DPA, Annexe 3).
 6. Duree de conservation des `EnvoiEvenement`, `SuppressionEntree`,
    `AuditExport` (necessaire pour le DPA Article 8 et les CGU).
+7. Seuil de significativite statistique pour declarer une variante
+   A/B gagnante (module de scoring, personnalisation) — doit etre
+   plus eleve qu'un seuil calibre sur du DM, cf. SPEC.md section 9.4.
+   Bloquant pour l'implementation du scoring, pas pour le reste du
+   generateur de variantes.
 
-Aucune de ces decisions ne bloque le code du MVP (V1) : elles sont
-necessaires avant la mise en prod / signature client, pas avant la
-premiere ligne de code. Le codage V1 demarre donc maintenant.
+Aucune de ces decisions ne bloque le code du MVP (V1) deja livre.
+Le point 7 bloque specifiquement le module de scoring de variantes
+(section suivante), pas la generation de variantes elle-meme.
 
 ## Prochaines etapes
 
@@ -129,6 +136,11 @@ premiere ligne de code. Le codage V1 demarre donc maintenant.
    deploiement expose a un reseau non controle.
 5. Authentification multi-client (risque #5), puis modules
    Delivrabilite complet et generateur de notification (V2).
+6. Generateur de variantes A/B (SPEC.md section 9) : obtenir l'acces
+   au repository `outboundDM-max` (ou une description precise de
+   l'interface du skill `dm-prospecting`) avant de porter le code ;
+   trancher le seuil de significativite statistique (decision
+   bloquante #7) avant d'implementer le module de scoring.
 
 ## Journal de session
 
@@ -157,3 +169,19 @@ premiere ligne de code. Le codage V1 demarre donc maintenant.
 - Vulnerabilite nodemailer <=9 corrigee (bump vers v10). Vulnerabilite
   Next.js 14.x restante documentee comme risque #1 ci-dessus, non
   corrigee cette session (migration majeure hors scope).
+
+### Session 3 — decision personnalisation / variantes A/B (pas de code)
+- Nouvelle section `SPEC.md` 9 : pas de scraping LinkedIn (direct ou
+  via lien profil CSV), personnalisation V1 limitee aux colonnes du
+  CSV client (manuelles ou via enrichissement tiers de son choix),
+  reutilisation prevue de l'architecture du generateur A/B
+  d'outboundDM-max (skill `dm-prospecting`) adaptee au format email,
+  seuil de significativite statistique a definir avant le scoring
+  (decision bloquante #7), integration Clay/Apollo/Cognism documentee
+  pour la V2 uniquement.
+- Modele de donnees etendu (SPEC.md 3.1) : nouvelle entite
+  `SequenceEtapeVariante`, `EnvoiEvenement.variante_id`.
+- Pas de code ecrit cette session : `outboundDM-max` n'est pas dans le
+  perimetre des repos attaches (cf. prochaine etape #6) — l'ajouter ou
+  fournir une description precise de son interface avant de porter le
+  generateur.

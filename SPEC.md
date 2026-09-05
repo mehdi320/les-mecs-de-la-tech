@@ -1,9 +1,10 @@
 # SPEC.md — SaaS B2B de cold email
 
-Statut : brouillon de cadrage, avant premiere ligne de code.
-Perimetre : ce document couvre le modele de donnees, le flux produit
-de bout en bout, et un renvoi vers le modele de DPA. Les decisions
-bloquantes non tranchees sont listees en section 7.
+Statut : MVP V1 code et fonctionnel en local (cf. PASSATION.md pour
+l'etat d'avancement et les risques connus). Ce document reste la
+reference du modele de donnees, du flux produit de bout en bout, et
+renvoie vers le modele de DPA. Les decisions bloquantes non tranchees
+sont listees en section 7.
 
 ---
 
@@ -73,10 +74,11 @@ omis des tableaux ci-dessous pour lisibilite sauf mention contraire.
 | `Mailbox` | `id`, `client_id`, `provider` (`google_workspace`\|`microsoft_365`\|`smtp_generique`), `email`, `oauth_tokens_ref` (reference chiffree, jamais le token en clair dans la table), `smtp_config_ref` (si generique), `statut_connexion`, `quota_jour` | Voir section 7 sur le choix OAuth Google/Microsoft vs SMTP/IMAP generique. |
 | `Domaine` | `id`, `client_id`, `nom_domaine`, `spf_statut`, `dkim_statut`, `dmarc_statut`, `dernier_check_at` | Alimente aussi le module Delivrabilite (3.4). |
 | `Sequence` | `id`, `client_id`, `nom`, `statut` (`brouillon`\|`active`\|`archivee`) | Un gabarit de campagne, reutilisable. |
-| `SequenceEtape` | `id`, `sequence_id`, `ordre`, `delai_jours`, `sujet`, `corps`, `condition_branche` (ex: si pas de reponse) | Contenu editorial de chaque etape. |
+| `SequenceEtape` | `id`, `sequence_id`, `ordre`, `delai_jours`, `sujet`, `corps`, `condition_branche` (ex: si pas de reponse) | Contenu editorial de chaque etape. Le `sujet`/`corps` portes ici sont le contenu par defaut (variante unique) ; cf. `SequenceEtapeVariante` ci-dessous et section 9 quand l'etape teste plusieurs variantes A/B. |
+| `SequenceEtapeVariante` | `id`, `sequence_etape_id`, `nom` (`A`\|`B`\|`C`...), `sujet`, `corps`, `champs_personnalisation_requis[]` (ex: `["prenom","entreprise","dernier_post"]`), `statut` (`en_test`\|`gagnante`\|`perdante`) | Cf. section 9 : variante generee a partir des colonnes du CSV client uniquement, jamais de donnee scrapee. |
 | `Campagne` | `id`, `client_id`, `sequence_id`, `liste_id` (FK vers `ListeImportee`, 3.2), `mailbox_ids[]`, `fuseau_horaire`, `fenetre_envoi` (ex: 9h-17h local contact), `statut` | Une execution concrete d'une sequence sur une liste. |
 | `Enrollment` | `id`, `campagne_id`, `contact_id`, `etape_courante`, `statut` (`en_attente`\|`envoye`\|`repondu`\|`stoppe_suppression`\|`stoppe_reponse`) | Le lien contact <-> avancement dans la sequence. **Verifie le registre de suppression (3.3) avant chaque envoi d'etape**, pas seulement a la creation. |
-| `EnvoiEvenement` | `id`, `enrollment_id`, `mailbox_id`, `horodatage`, `statut_smtp`, `message_id` | Trace technique d'un envoi individuel, source du diagnostic (3.4). |
+| `EnvoiEvenement` | `id`, `enrollment_id`, `mailbox_id`, `variante_id` (nullable, FK vers `SequenceEtapeVariante` — cf. section 9), `horodatage`, `statut_smtp`, `message_id` | Trace technique d'un envoi individuel, source du diagnostic (3.4) et du scoring de variante (section 9). |
 
 ### 3.2 Module Verification
 
@@ -118,7 +120,7 @@ Client 1---N Mailbox
 Client 1---N Domaine
 Client 1---N ListeImportee 1---N Contact
 Contact 1---1 VerificationResultat
-Client 1---N Sequence 1---N SequenceEtape
+Client 1---N Sequence 1---N SequenceEtape 1---N SequenceEtapeVariante
 Client 1---N Campagne --- (1 ListeImportee, N Mailbox, 1 Sequence)
 Campagne 1---N Enrollment N---1 Contact
 Enrollment 1---N EnvoiEvenement
@@ -214,7 +216,9 @@ A trancher avant implementation (voir aussi section 7) :
 **V1 = Module Envoi + Module Verification + Module Conformite basique.**
 
 - Module Envoi : connexion mailbox, constructeur de sequences,
-  programmation multi-fuseaux. Coeur du produit.
+  programmation multi-fuseaux, **generation automatique de variantes
+  A/B (objet + corps) a partir des colonnes du CSV importe par le
+  client** (cf. section 9 — decision tranchee). Coeur du produit.
 - Module Verification : score de risque explique a l'import.
 - Module Conformite (basique) : registre de suppression unifie
   inter-campagnes + export d'audit minimal. **Le generateur de texte
@@ -225,7 +229,10 @@ A trancher avant implementation (voir aussi section 7) :
 **V2 = Module Delivrabilite et Boucle**, moins l'IP dediee (retiree du
 perimetre V2 par defaut elle-meme, cf. ci-dessous) : warmup, diagnostic
 par cause, webhooks de conversion, recalcul de score par segment +
-generateur de notification multilingue du module Conformite.
+generateur de notification multilingue du module Conformite +
+**integration optionnelle avec des fournisseurs d'enrichissement tiers
+deja conformes (Clay, Apollo, Cognism) pour la personnalisation
+avancee** (cf. section 9 — pas de scraping interne).
 
 **IP dediee : retiree du MVP, tranche.** Le trou concurrentiel #4
 n'est pas construit en V1 ni promis en V2 par defaut. Il sera
@@ -274,6 +281,12 @@ plutot qu'a trancher ici.
 6. **Duree de conservation** des `EnvoiEvenement`, `SuppressionEntree`
    et `AuditExport` — necessaire pour remplir le DPA et le registre
    des traitements, non fixee dans ce document.
+7. **Seuil de significativite statistique pour declarer une variante
+   A/B gagnante** (cf. section 9) — a definir avant l'implementation
+   du module de scoring, et deliberement plus eleve qu'un seuil
+   calibre sur du DM (taux de reponse email structurellement plus
+   faible que sur LinkedIn/DM, donc echantillon requis plus grand
+   pour la meme confiance statistique).
 
 ---
 
@@ -285,5 +298,111 @@ plutot qu'a trancher ici.
 - Arborescence de projet : voir `src/`, `db/`, `legal/`, `docs/` a la
   racine du repo. Chaque dossier de module contient un `README.md`
   expliquant la responsabilite de sa couche (`domain` / `integration`
-  / `presentation`), sans code applicatif a ce stade.
+  / `presentation`) ; le MVP V1 (Envoi, Verification, Conformite
+  basique) y est deja code, cf. PASSATION.md pour l'etat exact.
 - Suivi d'avancement et journal de decisions : [`PASSATION.md`](./PASSATION.md).
+
+---
+
+## 9. Personnalisation et generation de variantes A/B (module Envoi)
+
+Decision tranchee, integree au perimetre V1.
+
+### 9.1 Pas de scraping LinkedIn — position tranchee
+
+Le produit ne scrape jamais LinkedIn, ni directement (recuperation
+automatisee de profils), ni indirectement via un lien de profil
+LinkedIn depose dans une colonne du CSV importe. Deux raisons, qui se
+renforcent :
+
+1. **Risque juridique et de ToS trop eleve pour un SaaS package.**
+   Le contentieux LinkedIn vs hiQ Labs a montre que la legalite du
+   scraping de donnees publiques reste disputee et dependante de la
+   juridiction ; construire une fonctionnalite qui en depend expose le
+   produit a une action de LinkedIn (blocage technique, mise en
+   demeure, contentieux) des lors qu'il opere a l'echelle d'un SaaS
+   multi-client plutot qu'un usage individuel ponctuel.
+2. **Incompatible avec le positionnement sous-traitant deja retenu**
+   (section 2). Le montage juridique entier du produit repose sur une
+   frontiere nette : le client apporte sa liste, le produit ne collecte
+   rien lui-meme. Si le produit scrapait LinkedIn pour enrichir cette
+   liste, il deciderait lui-meme de collecter une nouvelle categorie de
+   donnees non fournie par le client — il redeviendrait responsable de
+   traitement pour cette donnee-la, en contradiction directe avec le
+   DPA (legal/DPA-template.md, Article 3) qui place toute decision de
+   collecte du cote du client. Une seule fonctionnalite de scraping
+   suffirait a invalider la position "sous-traitant pur" du produit.
+
+Cette regle s'applique aussi indirectement : un lien de profil
+LinkedIn present dans une colonne du CSV client n'est **jamais** suivi
+ni scrape par le produit pour en extraire du contenu. La colonne est
+traitee comme une donnee opaque parmi d'autres (cf. 9.2).
+
+### 9.2 Perimetre V1 : variantes A/B a partir des colonnes du CSV client uniquement
+
+La personnalisation automatique V1 genere des variantes d'objet et de
+corps (`SequenceEtapeVariante`, cf. section 3.1) en utilisant
+**exclusivement les colonnes presentes dans le CSV importe par le
+client** (`Contact.donnees_additionnelles_json`, section 3.2) : nom,
+entreprise, poste, et toute colonne libre que le client choisit
+d'ajouter (ex : dernier post, actualite d'entreprise). Que ces colonnes
+soient remplies a la main par le client ou via un outil d'enrichissement
+tiers de son choix (Clay, Apollo, ou autre) ne change rien pour le
+produit : il consomme la colonne, il ne va jamais la chercher lui-meme.
+
+Consequence sur le modele de donnees (3.1) : `SequenceEtapeVariante`
+porte un champ `champs_personnalisation_requis[]` qui declare les
+colonnes attendues pour cette variante. Point a trancher au moment de
+l'implementation (pas bloquant pour cette decision de perimetre) :
+comportement si un contact n'a pas la colonne requise pour une
+variante — repli sur une variante sans cette donnee, ou exclusion du
+contact de la variante concernee.
+
+### 9.3 Reutilisation de l'architecture du generateur A/B (outboundDM-max)
+
+Le generateur de variantes reutilise l'architecture deja construite
+sur le projet **outboundDM-max** (skill `dm-prospecting`, lui-meme
+adapte du skill `cold-email` de coreyhaines31), adaptee du format DM
+(message unique) au format email (**objet + corps** generes ensemble,
+puisqu'un objet incoherent avec le corps degrade le taux d'ouverture
+independamment de la qualite du corps).
+
+**Prerequis avant implementation** : cette session de travail n'a pas
+acces au repository `outboundDM-max` (hors perimetre des repos
+attaches). L'adaptation concrete du code nécessite soit l'ajout de ce
+repository a la session (pour lire et porter la logique existante),
+soit une description precise de son interface par l'utilisateur. Tant
+que l'un des deux n'est pas disponible, seule l'intention
+architecturale est documentee ici, pas le portage lui-meme.
+
+### 9.4 Seuil de significativite statistique — contrainte, pas encore tranchee
+
+Le taux de reponse par email est structurellement plus faible que sur
+DM/LinkedIn (canal plus sature, moins de contexte social). Un seuil de
+significativite calibre sur les volumes et taux de reponse du DM
+sous-estimerait le risque de declarer une variante gagnante par bruit
+statistique plutot que par effet reel. Consequence : **le seuil de
+significativite (et la taille d'echantillon minimale associee) doit
+etre strictement plus eleve pour l'email que celui utilise en DM**,
+et reste a definir avant l'implementation du module de scoring —
+c'est la decision bloquante #7 de la section 7. Ce module de scoring
+s'appuiera sur `EnvoiEvenement.variante_id` (section 3.1) croise avec
+les evenements de reponse du module Delivrabilite (`ReponseEvenement`,
+section 3.4) pour calculer, par variante, un taux de reponse et sa
+significativite.
+
+### 9.5 V2 (non developpe maintenant) : integration avec des fournisseurs d'enrichissement tiers conformes
+
+Plutot que de construire un scraping interne (ecarte en 9.1), le
+produit documente une option d'integration future — non developpee
+dans le perimetre actuel — avec des fournisseurs d'enrichissement tiers
+deja conformes et positionnes sur ce marche : **Clay, Apollo, Cognism**.
+Le produit resterait sous-traitant pur : c'est le client qui choisit,
+configure et autorise l'appel a son propre compte chez ces
+fournisseurs (ou en important directement leur export dans son CSV,
+deja possible en V1 sans aucun developpement specifique) ; le produit
+ne fait que consommer les colonnes resultantes, exactement comme en
+9.2. A trancher au moment de la V2 : integration API directe
+(connexion du compte Clay/Apollo/Cognism du client) versus simple
+documentation d'usage (le client exporte lui-meme et importe le CSV
+enrichi, deja fonctionnel des V1).
