@@ -77,3 +77,18 @@ export async function supprimerCampagne(formData: FormData): Promise<boolean> {
   revalidatePath("/campagnes");
   return ok;
 }
+
+/**
+ * Marquage manuel d'une reponse (cf. SPEC.md section 9.7) : la
+ * detection automatique de reponse (parsing IMAP/webhook) n'est pas
+ * construite — meme logique que le marquage manuel de statut
+ * d'outboundDM-max ("marquer un prospect repondu depuis la liste").
+ */
+export async function marquerEnrollmentRepondu(formData: FormData): Promise<void> {
+  const enrollmentId = String(formData.get("enrollmentId") ?? "");
+  if (!enrollmentId) return;
+
+  const { envoi } = getContainer();
+  envoi.enrollments.updateStatut(enrollmentId, "repondu");
+  revalidatePath("/campagnes");
+}

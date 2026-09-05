@@ -92,3 +92,61 @@ export function AlertTriangleIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+// Smileys de statut visuel (cf. SPEC.md section 9.7) : echelle choisie
+// par l'utilisateur, pas un score d'engagement croissant — envoye =
+// content, repondu = tres content, ouvert = normal, echec = pas
+// content. Memes yeux (deux points pleins) sur les quatre, seule la
+// bouche change.
+function yeux() {
+  return (
+    <>
+      <circle cx="9" cy="10" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  );
+}
+
+/** Envoye : content. */
+export function SmileyEnvoyeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      {yeux()}
+      <path d="M8 15c1.2 1.2 2.5 1.8 4 1.8s2.8-.6 4-1.8" />
+    </Icon>
+  );
+}
+
+/** Repondu : tres content. */
+export function SmileyReponduIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      {yeux()}
+      <path d="M7 14.3c1.4 2 3 3 5 3s3.6-1 5-3" />
+    </Icon>
+  );
+}
+
+/** Ouvert : normal. */
+export function SmileyOuvertIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      {yeux()}
+      <path d="M8.2 15.5h7.6" />
+    </Icon>
+  );
+}
+
+/** Echec d'envoi : pas content. */
+export function SmileyEchecIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      {yeux()}
+      <path d="M8 16.5c1.2-1.2 2.5-1.8 4-1.8s2.8.6 4 1.8" />
+    </Icon>
+  );
+}

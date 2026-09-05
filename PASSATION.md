@@ -51,10 +51,22 @@ multi-client n'est pas dans le perimetre code cette session.
   d'objet+corps porte depuis outboundDM-max (`src/modules/envoi/domain/personnalisation/`),
   rotation equilibree a l'envoi, template `{colonne}` rendu depuis
   `Contact.donnees_additionnelles_json`. Module de scoring
-  (`scoring.ts`, z-test de proportions) ecrit mais pas branche a un
-  tableau de bord — depend de `ReponseEvenement` (module Delivrabilite,
-  V2, pas encore code) ; seuils provisoires clairement marques comme
-  tels dans le code, decision bloquante #7 toujours ouverte.
+  (`scoring.ts`, z-test de proportions) ecrit mais pas encore
+  branche a un tableau de bord dedie — les taux d'ouverture/reponse
+  existent desormais (cf. ci-dessous) mais rien n'agrege encore par
+  variante ; seuils provisoires clairement marques comme tels dans le
+  code, decision bloquante #7 toujours ouverte.
+- **Module Delivrabilite (V2) : deux tranches codees en avance de
+  perimetre** (SPEC.md sections 9.7/9.8, sur demande explicite) :
+  suivi d'ouverture par pixel de tracking (`EnvoiEvenement.ouvert_at`,
+  route `/api/tracking/pixel/[eventId]`, necessite `APP_BASE_URL` —
+  non fonctionnel en local, seul un deploiement avec URL publique le
+  rend actif), marquage manuel de reponse (pas de detection
+  automatique, meme logique qu'outboundDM-max), statut visuel en
+  smiley (`statutVisuelEnrollment()`), et diagnostic de
+  sous-performance par cause (`diagnostiquer()`, regles a seuils
+  provisoires — decision bloquante #8). Reste V2 non code : `IPDediee`,
+  `WarmupPlan`, `SegmentScore`, persistance du diagnostic.
 - Chiffrement au repos des secrets de mailbox (AES-256-GCM,
   `src/shared/integration/secrets.ts`), requiert `APP_SECRET_KEY`.
 - Composition root unique : `src/shared/integration/container.ts` —
@@ -106,6 +118,18 @@ bout en bout sur le dev server local.
    objet direct/indirect ("vous dire" -> "te dire") — une variante
    generee reste **a relire avant activation**, comme le rappelle le
    README d'outboundDM-max pour l'original DM.
+8. **`EnrollmentService` fait progresser l'etape et passe l'enrollment
+   a `envoye` meme quand l'envoi SMTP a effectivement echoue** — le
+   badge de statut d'enrollment peut afficher `envoye` alors que le
+   smiley de la meme ligne affiche `echec` (cf. SPEC.md section 9.7).
+   Trouve en testant le statut visuel, pas corrige (changement de
+   comportement distinct — retry ou blocage sur echec — hors
+   perimetre de la demande qui a introduit le smiley).
+9. Suivi d'ouverture non fonctionnel en local (`APP_BASE_URL` non
+   joignable depuis internet) — code correct, a valider une fois
+   deploye. Le taux d'ouverture, meme une fois actif, sous-estimera
+   toujours le taux reel (blocage d'images cote client mail) : signal
+   relatif, jamais un chiffre absolu.
 
 ## Decisions prises
 
@@ -354,3 +378,46 @@ Le point 7 bloque specifiquement le module de scoring de variantes
   lint relance_vide se declenche sur un corps bump-only et pas sur un
   corps substantiel, case "inclure l'offre" preserve effectivement un
   prix normalement retire.
+
+### Session 8 — statut visuel (smiley) et diagnostic de sous-performance
+- Sur demande, avance de perimetre sur deux tranches du module
+  Delivrabilite (V2, SPEC.md sections 9.7/9.8) plutot que d'attendre :
+  1. **Suivi d'ouverture par pixel** : migration 0003
+     (`envoi_evenements.ouvert_at`), route
+     `/api/tracking/pixel/[eventId]` (toujours 200 + GIF transparent,
+     y compris sur un id inconnu — un pixel ne doit jamais faire
+     echouer l'affichage cote destinataire), `APP_BASE_URL` requis
+     (non fonctionnel en local). L'id de l'evenement d'envoi est
+     desormais genere avant l'envoi (`crypto.randomUUID()` dans
+     `EnrollmentService`, plus par le repository a l'insertion) pour
+     pouvoir construire l'URL du pixel et l'injecter dans le corps
+     avant meme d'envoyer.
+  2. **Reponse : marquage manuel** (`marquerEnrollmentRepondu`,
+     bouton par ligne d'enrollment) — pas de detection automatique
+     (demanderait IMAP ou un webhook fournisseur, aucun des deux
+     construit), meme logique que le marquage manuel d'outboundDM-max.
+- **Statut visuel en smiley** (`statutVisuelEnrollment()` +
+  4 icones SVG dessinees a la main dans le style du reste du kit UI,
+  pas des emoji unicode) : echelle choisie par l'utilisateur —
+  envoye = content, repondu = tres content, ouvert = normal, echec =
+  pas content (pas un score d'engagement croissant). Affiche par
+  ligne d'enrollment sur la page Campagnes.
+- **Diagnostic de sous-performance par cause**
+  (`delivrabilite/domain/diagnostic-performance.ts`, `diagnostiquer()`) :
+  regles a seuils (delivrabilite / contenu / ciblage / aucune),
+  croisant taux d'echec, taux d'ouverture, taux de reponse, score de
+  risque moyen de la liste (deja existant), validite SPF/DMARC du
+  domaine de la mailbox (deja existant). Seuils explicitement
+  provisoires (nouvelle decision bloquante #8, SPEC.md section 7).
+  Calcule a la volee sur la page Campagnes, pas persiste.
+- Bug reel observe en testant (pas corrige, documente comme risque
+  #8) : `EnrollmentService` avance l'enrollment a `envoye` meme quand
+  l'envoi a echoue — le smiley (qui lit le dernier `EnvoiEvenement`)
+  est dans ce cas le signal fiable, le badge de statut d'enrollment
+  un peu trompeur. Corriger l'avancement sur echec est un changement
+  de comportement distinct de cette demande.
+- `npm run build` et `npm run typecheck` passent sans erreur ; verifie
+  manuellement (Playwright + curl direct sur la route pixel) :
+  pixel repond 200/GIF meme sur id inconnu, diagnostic affiche "pas
+  assez d'envois" en dessous du seuil, marquage manuel de reponse
+  fonctionne et se reflete immediatement dans le smiley.

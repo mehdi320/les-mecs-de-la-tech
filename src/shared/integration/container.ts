@@ -65,6 +65,7 @@ export function getContainer() {
     contactLookup,
     mailboxSender,
     sequenceEtapeVariantes,
+    process.env.APP_BASE_URL ?? null,
   );
 
   const verificationService = new VerificationService(

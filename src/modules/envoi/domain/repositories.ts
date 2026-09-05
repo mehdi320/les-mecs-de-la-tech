@@ -74,13 +74,19 @@ export interface EnrollmentRepository {
 
 export interface EnvoiEvenementRepository {
   create(input: {
+    /** Genere en amont par l'appelant (cf. EnrollmentService) pour pouvoir construire l'URL du pixel de suivi avant l'envoi. */
+    id: string;
     enrollmentId: string;
     mailboxId: string;
     varianteId: string | null;
     statutSmtp: string;
     messageId: string | null;
   }): EnvoiEvenement;
+  findById(id: string): EnvoiEvenement | null;
   listByEnrollment(enrollmentId: string): EnvoiEvenement[];
+  listByCampagne(campagneId: string): EnvoiEvenement[];
   /** Nombre d'envois par variante — sert la rotation equilibree (cf. personnalisation/variante-selection.ts). */
   countByVariantes(varianteIds: string[]): Record<string, number>;
+  /** Idempotent : ne fait rien si deja ouvert (garde le premier horodatage). */
+  marquerOuvert(id: string): void;
 }

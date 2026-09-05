@@ -5,6 +5,7 @@ import type { ContactLookup } from "@/modules/envoi/domain/contact-lookup";
 import type { SequenceEtapeVarianteRepository } from "@/modules/envoi/domain/personnalisation/repositories";
 import { choisirVarianteEquilibree } from "@/modules/envoi/domain/personnalisation/variante-selection";
 import { renderTemplate } from "@/shared/domain/template";
+import { construireUrlPixel, injecterPixelSuivi } from "@/modules/delivrabilite/domain/tracking-pixel";
 
 export interface EnvoiPort {
   envoyer(input: { mailboxId: string; destinataire: string; sujet: string; corps: string }): Promise<{
@@ -22,6 +23,8 @@ export class EnrollmentService {
     private readonly contacts: ContactLookup,
     private readonly envoi: EnvoiPort,
     private readonly variantes: SequenceEtapeVarianteRepository,
+    /** Base publique du produit, pour construire l'URL du pixel de suivi d'ouverture. `null` = suivi desactive (pas configure). */
+    private readonly baseUrlSuivi: string | null,
   ) {}
 
   /**
@@ -67,11 +70,20 @@ export class EnrollmentService {
 
     const donnees = this.contacts.getDonneesAdditionnelles(enrollment.contactId);
     const sujet = renderTemplate(variante ? variante.sujet : etape.sujet, donnees);
-    const corps = renderTemplate(variante ? variante.corps : etape.corps, donnees);
+    let corps = renderTemplate(variante ? variante.corps : etape.corps, donnees);
+
+    // L'id est genere avant l'envoi (pas par le repository a l'insertion)
+    // pour pouvoir construire l'URL du pixel de suivi d'ouverture et
+    // l'inserer dans le corps avant meme que l'email ne parte.
+    const envoiEvenementId = crypto.randomUUID();
+    if (this.baseUrlSuivi) {
+      corps = injecterPixelSuivi(corps, construireUrlPixel(this.baseUrlSuivi, envoiEvenementId));
+    }
 
     const resultat = await this.envoi.envoyer({ mailboxId, destinataire: email, sujet, corps });
 
     this.evenements.create({
+      id: envoiEvenementId,
       enrollmentId: enrollment.id,
       mailboxId,
       varianteId: variante?.id ?? null,

@@ -80,4 +80,6 @@ export interface EnvoiEvenement {
   horodatage: string;
   statutSmtp: string;
   messageId: string | null;
+  /** Rempli par le pixel de suivi (cf. SPEC.md section 9.7) — null tant que l'email n'a pas ete ouvert. */
+  ouvertAt: string | null;
 }

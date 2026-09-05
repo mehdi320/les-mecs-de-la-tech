@@ -287,6 +287,12 @@ plutot qu'a trancher ici.
    calibre sur du DM (taux de reponse email structurellement plus
    faible que sur LinkedIn/DM, donc echantillon requis plus grand
    pour la meme confiance statistique).
+8. **Seuils du diagnostic de sous-performance** (cf. section 9.8) :
+   minimum d'envois, taux d'echec/ouverture/reponse, score de risque
+   moyen — actuellement des valeurs provisoires non validees sur
+   donnees reelles. Bloquant pour la fiabilite du diagnostic affiche,
+   pas pour son existence (la logique de classification est correcte,
+   seuls les chiffres sont a ajuster).
 
 ---
 
@@ -482,3 +488,84 @@ cas differemment, avec une fonction dediee
 Aucune nouvelle decision bloquante : ces choix (banque d'ouvertures,
 seuils de cadence/lint) sont des parametres de produit revisables,
 pas des points juridiques ou d'architecture.
+
+### 9.7 Statut visuel (smiley) et suivi d'ouverture — implemente, avance de perimetre sur le module Delivrabilite
+
+Sur demande explicite, deux tranches du module Delivrabilite (V2,
+section 3.4/6) sont codees en avance de perimetre plutot que d'etre
+seulement documentees :
+
+- **`EnvoiEvenement.ouvert_at`** (migration `0003_ouverture.sql`) et
+  un pixel de suivi d'ouverture (`src/app/api/tracking/pixel/[eventId]`,
+  cf. `delivrabilite/domain/tracking-pixel.ts`). L'id de l'evenement
+  est genere avant l'envoi (`crypto.randomUUID()`, pas par le
+  repository a l'insertion) pour pouvoir construire l'URL du pixel et
+  l'inserer dans le corps avant meme l'envoi — l'ordre naturel
+  (envoyer puis persister) ne permettrait pas de connaitre l'id a
+  temps. Necessite `APP_BASE_URL` (variable d'environnement, cf.
+  `.env.example`) : sans base publique joignable par le destinataire,
+  le suivi est desactive silencieusement (pas d'erreur, juste aucun
+  pixel injecte) — **non fonctionnel dans un environnement de
+  developpement local** (le destinataire ne peut pas atteindre
+  `localhost`), a valider une fois deploye. Comme toute mesure par
+  pixel (Instantly/Lemlist/Smartlead font de meme), le taux
+  d'ouverture obtenu **sous-estime toujours** le taux reel (clients
+  mail qui bloquent les images par defaut) : signal relatif entre
+  variantes/campagnes, jamais un chiffre absolu a interpreter seul.
+- **Reponse : marquage manuel**, pas de detection automatique. La
+  detection automatique demanderait soit un polling IMAP de la
+  mailbox du client, soit un webhook d'un fournisseur d'envoi tiers —
+  aucun des deux n'est construit (coherent avec la decision IP
+  dediee/infra d'envoi : V1 envoie via les mailboxes du client sans
+  service tiers). Meme logique que le marquage manuel de statut
+  d'outboundDM-max ("marquer un prospect repondu depuis la liste").
+  A la charge de l'utilisateur de marquer un contact "repondu" quand
+  il lit sa boite.
+- **Echelle de statut visuel** (`statutVisuelEnrollment()`,
+  `src/modules/envoi/domain/statut-visuel.ts`) : ordre choisi
+  explicitement par l'utilisateur, pas un score d'engagement
+  croissant — `envoye` = content, `repondu` = tres content, `ouvert`
+  = normal, `echec` = pas content. Priorite : repondu (marquage
+  manuel) prime toujours sur le dernier evenement d'envoi ; sinon le
+  dernier evenement tranche (echec si le dernier envoi a echoue,
+  ouvert si ouvert et non echoue, envoye sinon).
+
+**Ecart de comportement observe (pas corrige, hors perimetre de cette
+demande)** : `EnrollmentService` fait progresser l'etape et passe
+l'enrollment a `envoye` meme quand l'envoi SMTP a effectivement
+echoue (`statutSmtp` commence par `erreur`) — le badge de statut
+d'enrollment peut donc afficher `envoye` alors que le smiley affiche
+`echec` pour la meme ligne. Le smiley est dans ce cas **le signal
+fiable**, le badge `envoye` un peu trompeur ; corriger l'avancement
+de l'enrollment sur echec (retry ou blocage) est un changement de
+comportement distinct, a traiter separement.
+
+### 9.8 Diagnostic de sous-performance par cause — implemente, calcule a la volee
+
+`src/modules/delivrabilite/domain/diagnostic-performance.ts`,
+`diagnostiquer()` : regles a seuils (pas de machine learning),
+classant chaque campagne en `delivrabilite` / `contenu` / `ciblage` /
+`aucune` (cf. section 3.4, trou concurrentiel #3). Entrees : taux
+d'echec d'envoi, taux d'ouverture (pixel, cf. 9.7), taux de reponse
+(marquage manuel, cf. 9.7), score de risque moyen de la liste
+ciblee (module Verification, deja existant), validite SPF/DMARC du
+domaine de la mailbox utilisee (module Envoi, deja existant).
+
+Logique (ordre de priorite) : taux d'echec eleve -> `delivrabilite`
+(config SPF/DKIM/DMARC ou mailbox a verifier avant tout) ; sinon taux
+d'ouverture faible -> `delivrabilite` si le domaine n'est pas
+authentifie (spam probable), sinon `contenu` (objet peu engageant) ;
+sinon taux de reponse faible -> `ciblage` si le score de risque moyen
+de la liste est eleve, sinon `contenu` (corps/CTA a retravailler).
+
+**Seuils explicitement provisoires** (meme esprit que
+`personnalisation/scoring.ts`) : minimum de 20 envois avant de
+diagnostiquer, taux d'echec >= 15%, taux d'ouverture < 20%, taux de
+reponse < 2%, score de risque moyen >= 50/100. A valider sur des
+donnees reelles avant mise en prod — nouvelle decision bloquante,
+ajoutee en section 7.
+
+Calcule a la volee a chaque affichage de la page Campagnes, jamais
+persiste (pas de table `DiagnosticPerformance`, contrairement au
+modele de donnees de la section 3.4) : plus simple pour un premier
+jet et toujours a jour, tant que le volume d'agregats reste faible.

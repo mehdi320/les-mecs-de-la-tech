@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { EnvoiEvenement } from "@/modules/envoi/domain/entities";
 import type { EnvoiEvenementRepository } from "@/modules/envoi/domain/repositories";
@@ -11,6 +10,7 @@ interface EnvoiEvenementRow {
   horodatage: string;
   statut_smtp: string;
   message_id: string | null;
+  ouvert_at: string | null;
 }
 
 function toEvenement(row: EnvoiEvenementRow): EnvoiEvenement {
@@ -22,6 +22,7 @@ function toEvenement(row: EnvoiEvenementRow): EnvoiEvenement {
     horodatage: row.horodatage,
     statutSmtp: row.statut_smtp,
     messageId: row.message_id,
+    ouvertAt: row.ouvert_at,
   };
 }
 
@@ -29,25 +30,42 @@ export class SqliteEnvoiEvenementRepository implements EnvoiEvenementRepository 
   constructor(private readonly db: Database) {}
 
   create(input: {
+    id: string;
     enrollmentId: string;
     mailboxId: string;
     varianteId: string | null;
     statutSmtp: string;
     messageId: string | null;
   }): EnvoiEvenement {
-    const id = randomUUID();
     this.db
       .prepare(
         "INSERT INTO envoi_evenements (id, enrollment_id, mailbox_id, variante_id, statut_smtp, message_id) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(id, input.enrollmentId, input.mailboxId, input.varianteId, input.statutSmtp, input.messageId);
-    return this.listByEnrollment(input.enrollmentId).find((e) => e.id === id)!;
+      .run(input.id, input.enrollmentId, input.mailboxId, input.varianteId, input.statutSmtp, input.messageId);
+    return this.findById(input.id)!;
+  }
+
+  findById(id: string): EnvoiEvenement | null {
+    const row = this.db.prepare("SELECT * FROM envoi_evenements WHERE id = ?").get(id) as EnvoiEvenementRow | undefined;
+    return row ? toEvenement(row) : null;
   }
 
   listByEnrollment(enrollmentId: string): EnvoiEvenement[] {
     const rows = this.db
       .prepare("SELECT * FROM envoi_evenements WHERE enrollment_id = ? ORDER BY horodatage ASC")
       .all(enrollmentId) as EnvoiEvenementRow[];
+    return rows.map(toEvenement);
+  }
+
+  listByCampagne(campagneId: string): EnvoiEvenement[] {
+    const rows = this.db
+      .prepare(
+        `SELECT ev.* FROM envoi_evenements ev
+         JOIN enrollments en ON en.id = ev.enrollment_id
+         WHERE en.campagne_id = ?
+         ORDER BY ev.horodatage ASC`,
+      )
+      .all(campagneId) as EnvoiEvenementRow[];
     return rows.map(toEvenement);
   }
 
@@ -61,5 +79,9 @@ export class SqliteEnvoiEvenementRepository implements EnvoiEvenementRepository 
     for (const id of varianteIds) compteurs[id] = 0;
     for (const row of rows) compteurs[row.variante_id] = row.n;
     return compteurs;
+  }
+
+  marquerOuvert(id: string): void {
+    this.db.prepare("UPDATE envoi_evenements SET ouvert_at = datetime('now') WHERE id = ? AND ouvert_at IS NULL").run(id);
   }
 }
