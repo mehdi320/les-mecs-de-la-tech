@@ -1,6 +1,14 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
 import { importerListe, lancerVerification } from "@/modules/verification/presentation/liste-actions";
+import { PageHeader } from "@/shared/ui/page-header";
+import { Card, CardTitle } from "@/shared/ui/card";
+import { Field, Input, Textarea } from "@/shared/ui/field";
+import { SubmitButton } from "@/shared/ui/submit-button";
+import { Badge } from "@/shared/ui/badge";
+import { RiskScore } from "@/shared/ui/risk-score";
+import { EmptyState } from "@/shared/ui/empty-state";
+import { ListImportIcon } from "@/shared/ui/icons";
 
 export default function ListesPage() {
   const { verification } = getContainer();
@@ -8,56 +16,69 @@ export default function ListesPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold">Listes importees</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Une adresse par ligne (ex: <code>prenom@exemple.com, Prenom, Entreprise</code>). Dedoublonnage intra-liste et
-        exclusion des contacts deja dans le registre de suppression au moment de l&apos;import (cf. SPEC.md section 4).
-      </p>
+      <PageHeader
+        title="Listes importees"
+        description="Dedoublonnage intra-liste et exclusion des contacts deja dans le registre de suppression au moment de l'import (cf. SPEC.md section 4)."
+      />
 
-      <form action={importerListe} className="mt-6 space-y-3 rounded border border-slate-200 bg-white p-4">
-        <div className="flex gap-3">
-          <input name="nom" placeholder="Nom de la liste" required className="flex-1 rounded border border-slate-300 px-2 py-1" />
-          <input name="sourceDeclaree" placeholder="Source declaree (optionnel)" className="flex-1 rounded border border-slate-300 px-2 py-1" />
-        </div>
-        <textarea
-          name="contacts"
-          placeholder="prenom@exemple.com&#10;autre@exemple.com, Prenom, Entreprise"
-          required
-          rows={6}
-          className="w-full rounded border border-slate-300 px-2 py-1 font-mono text-sm"
-        />
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
-          Importer
-        </button>
-      </form>
+      <Card>
+        <form action={importerListe} className="space-y-3">
+          <div className="flex gap-3">
+            <Field label="Nom de la liste" className="flex-1">
+              <Input name="nom" required />
+            </Field>
+            <Field label="Source declaree (optionnel)" className="flex-1">
+              <Input name="sourceDeclaree" placeholder="ex: export CRM interne" />
+            </Field>
+          </div>
+          <Field label="Contacts" hint="Une adresse par ligne — prenom@exemple.com, Prenom, Entreprise (colonnes libres apres l'email)">
+            <Textarea
+              name="contacts"
+              placeholder={"prenom@exemple.com\nautre@exemple.com, Prenom, Entreprise"}
+              required
+              rows={6}
+              className="font-mono"
+            />
+          </Field>
+          <SubmitButton pendingText="Import en cours…">Importer</SubmitButton>
+        </form>
+      </Card>
 
       <div className="mt-6 space-y-6">
+        {listes.length === 0 && (
+          <EmptyState
+            icon={<ListImportIcon className="h-8 w-8" />}
+            title="Aucune liste importee"
+            description="Importez votre premiere liste de contacts ci-dessus."
+          />
+        )}
+
         {listes.map((liste) => {
           const contacts = verification.contacts.listByListe(liste.id);
           return (
-            <div key={liste.id} className="rounded border border-slate-200 bg-white p-4">
+            <Card key={liste.id}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-medium">{liste.nom}</h2>
-                  <p className="text-xs text-slate-500">
-                    {liste.nbContacts} contacts — statut : {liste.statutVerification}
+                  <CardTitle>{liste.nom}</CardTitle>
+                  <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                    {liste.nbContacts} contacts <Badge>{liste.statutVerification}</Badge>
                   </p>
                 </div>
                 {liste.statutVerification !== "terminee" && (
                   <form action={lancerVerification}>
                     <input type="hidden" name="listeId" value={liste.id} />
-                    <button type="submit" className="rounded bg-slate-700 px-2 py-1 text-xs text-white">
+                    <SubmitButton size="sm" pendingText="Verification…">
                       Lancer la verification
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>
 
               {liste.statutVerification === "terminee" && (
-                <table className="mt-3 w-full text-sm">
+                <table className="mt-4 w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-500">
-                      <th className="py-1">Email</th>
+                    <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                      <th className="py-2">Email</th>
                       <th>Score de risque</th>
                       <th>Explication</th>
                     </tr>
@@ -67,9 +88,9 @@ export default function ListesPage() {
                       const resultat = verification.verificationResultats.findByContact(contact.id);
                       return (
                         <tr key={contact.id} className="border-b border-slate-100 align-top">
-                          <td className="py-1">{contact.email}</td>
-                          <td>{resultat?.scoreRisque ?? "—"}</td>
-                          <td className="text-xs text-slate-600">
+                          <td className="py-2.5 font-medium text-slate-900">{contact.email}</td>
+                          <td>{resultat ? <RiskScore score={resultat.scoreRisque} /> : "—"}</td>
+                          <td className="text-xs text-slate-500">
                             {resultat && resultat.scoreExplication.length > 0
                               ? resultat.scoreExplication.map((f) => f.detail).join(" / ")
                               : "Aucun facteur de risque detecte."}
@@ -80,7 +101,7 @@ export default function ListesPage() {
                   </tbody>
                 </table>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>

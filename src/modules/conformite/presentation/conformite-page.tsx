@@ -1,6 +1,13 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
 import { ajouterSuppression, genererAuditExport } from "@/modules/conformite/presentation/conformite-actions";
+import { PageHeader } from "@/shared/ui/page-header";
+import { Card, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/field";
+import { SubmitButton } from "@/shared/ui/submit-button";
+import { Badge } from "@/shared/ui/badge";
+import { EmptyState } from "@/shared/ui/empty-state";
+import { ShieldCheckIcon } from "@/shared/ui/icons";
 
 export default function ConformitePage() {
   const { conformite } = getContainer();
@@ -9,64 +16,72 @@ export default function ConformitePage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold">Conformite</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Registre de suppression unifie a travers toutes les campagnes et listes du client (cf. SPEC.md section 3.3).
-      </p>
+      <PageHeader
+        title="Conformite"
+        description="Registre de suppression unifie a travers toutes les campagnes et listes du client (cf. SPEC.md section 3.3)."
+      />
 
-      <section className="mt-6 rounded border border-slate-200 bg-white p-4">
-        <h2 className="font-medium">Registre de suppression</h2>
+      <Card>
+        <CardTitle>Registre de suppression</CardTitle>
         <form action={ajouterSuppression} className="mt-3 flex gap-2">
-          <input name="email" type="email" placeholder="email@exemple.com" required className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" />
-          <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
-            Ajouter
-          </button>
+          <Input name="email" type="email" placeholder="email@exemple.com" required />
+          <SubmitButton className="shrink-0">Ajouter</SubmitButton>
         </form>
-        <table className="mt-4 w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-slate-500">
-              <th className="py-1">Email</th>
-              <th>Origine</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {suppressions.map((entree) => (
-              <tr key={entree.id} className="border-b border-slate-100">
-                <td className="py-1">{entree.email}</td>
-                <td>{entree.origine}</td>
-                <td>{entree.horodatage}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        <div className="mt-4">
+          {suppressions.length === 0 ? (
+            <EmptyState icon={<ShieldCheckIcon className="h-7 w-7" />} title="Aucune entree de suppression" />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <th className="py-2">Email</th>
+                  <th>Origine</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suppressions.map((entree) => (
+                  <tr key={entree.id} className="border-b border-slate-100">
+                    <td className="py-2 font-medium text-slate-900">{entree.email}</td>
+                    <td className="text-slate-500">{entree.origine}</td>
+                    <td className="text-slate-400">{entree.horodatage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
 
-      <section className="mt-6 rounded border border-slate-200 bg-white p-4">
-        <h2 className="font-medium">Export d&apos;audit par contact</h2>
+      <Card className="mt-6">
+        <CardTitle>Export d&apos;audit par contact</CardTitle>
         <form action={genererAuditExport} className="mt-3 flex gap-2">
-          <input name="email" type="email" placeholder="email@exemple.com" required className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" />
-          <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
+          <Input name="email" type="email" placeholder="email@exemple.com" required />
+          <SubmitButton className="shrink-0" pendingText="Generation…">
             Generer
-          </button>
+          </SubmitButton>
         </form>
         <div className="mt-4 space-y-3">
-          {audits.map((audit) => (
-            <div key={audit.id} className="rounded bg-slate-50 p-3 text-xs">
-              <p>
-                Hash : {audit.contactEmailHash.slice(0, 16)}… — statut opposition :{" "}
-                <span className={audit.statutOpposition === "opposee" ? "text-red-600" : "text-emerald-600"}>
-                  {audit.statutOpposition}
-                </span>
-              </p>
-              <p className="mt-1 text-slate-500">
-                {audit.campagnes.length} evenement(s) de campagne{" "}
-                {audit.campagnes.length > 0 && `— dernier le ${audit.campagnes[audit.campagnes.length - 1]?.horodatage}`}
-              </p>
-            </div>
-          ))}
+          {audits.length === 0 ? (
+            <EmptyState title="Aucun export d'audit genere" />
+          ) : (
+            audits.map((audit) => (
+              <div key={audit.id} className="rounded-lg bg-slate-50 p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-slate-500">{audit.contactEmailHash.slice(0, 16)}…</p>
+                  <Badge tone={audit.statutOpposition === "opposee" ? "danger" : "success"}>
+                    {audit.statutOpposition}
+                  </Badge>
+                </div>
+                <p className="mt-1.5 text-slate-500">
+                  {audit.campagnes.length} evenement(s) de campagne
+                  {audit.campagnes.length > 0 && ` — dernier le ${audit.campagnes[audit.campagnes.length - 1]?.horodatage}`}
+                </p>
+              </div>
+            ))
+          )}
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

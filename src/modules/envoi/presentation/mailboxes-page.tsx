@@ -1,6 +1,13 @@
 import { getContainer } from "@/shared/integration/container";
 import { CLIENT_ID_COURANT } from "@/shared/integration/current-client";
 import { connecterMailboxSmtp } from "@/modules/envoi/presentation/mailbox-actions";
+import { PageHeader } from "@/shared/ui/page-header";
+import { Card } from "@/shared/ui/card";
+import { Field, Input } from "@/shared/ui/field";
+import { SubmitButton } from "@/shared/ui/submit-button";
+import { Badge } from "@/shared/ui/badge";
+import { EmptyState } from "@/shared/ui/empty-state";
+import { MailboxIcon } from "@/shared/ui/icons";
 
 export default function MailboxesPage() {
   const { envoi } = getContainer();
@@ -8,61 +15,68 @@ export default function MailboxesPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold">Mailboxes</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        OAuth Google Workspace / Microsoft 365 necessitent des identifiants applicatifs non configures dans cet
-        environnement (cf. PASSATION.md). Connexion SMTP generique fonctionnelle ci-dessous.
-      </p>
+      <PageHeader
+        title="Mailboxes"
+        description="OAuth Google Workspace / Microsoft 365 necessitent des identifiants applicatifs non configures dans cet environnement (cf. PASSATION.md). Connexion SMTP generique fonctionnelle ci-dessous."
+      />
 
-      <form action={connecterMailboxSmtp} className="mt-6 space-y-3 rounded border border-slate-200 bg-white p-4">
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input name="email" type="email" required className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">Hote SMTP</label>
-            <input name="host" required className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+      <Card>
+        <form action={connecterMailboxSmtp} className="space-y-3">
+          <Field label="Email">
+            <Input name="email" type="email" required placeholder="envoi@votredomaine.com" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Hote SMTP">
+              <Input name="host" required placeholder="smtp.votredomaine.com" />
+            </Field>
+            <Field label="Port">
+              <Input name="port" type="number" defaultValue={587} />
+            </Field>
           </div>
-          <div>
-            <label className="block text-sm font-medium">Port</label>
-            <input name="port" type="number" defaultValue={587} className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Utilisateur</label>
-          <input name="user" required className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Mot de passe / cle applicative</label>
-          <input name="pass" type="password" required className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input name="secure" type="checkbox" /> Connexion TLS directe (port 465)
-        </label>
-        <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
-          Connecter
-        </button>
-      </form>
+          <Field label="Utilisateur">
+            <Input name="user" required />
+          </Field>
+          <Field label="Mot de passe / cle applicative">
+            <Input name="pass" type="password" required />
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input name="secure" type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+            Connexion TLS directe (port 465)
+          </label>
+          <SubmitButton pendingText="Connexion en cours…">Connecter</SubmitButton>
+        </form>
+      </Card>
 
-      <table className="mt-6 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500">
-            <th className="py-1">Email</th>
-            <th>Fournisseur</th>
-            <th>Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mailboxes.map((mailbox) => (
-            <tr key={mailbox.id} className="border-b border-slate-100">
-              <td className="py-1">{mailbox.email}</td>
-              <td>{mailbox.provider}</td>
-              <td>{mailbox.statutConnexion}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="mt-6">
+        {mailboxes.length === 0 ? (
+          <EmptyState
+            icon={<MailboxIcon className="h-8 w-8" />}
+            title="Aucune mailbox connectee"
+            description="Connectez une mailbox SMTP ci-dessus pour pouvoir creer une campagne."
+          />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="py-2">Email</th>
+                <th>Fournisseur</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mailboxes.map((mailbox) => (
+                <tr key={mailbox.id} className="border-b border-slate-100">
+                  <td className="py-2.5 font-medium text-slate-900">{mailbox.email}</td>
+                  <td className="text-slate-500">{mailbox.provider}</td>
+                  <td>
+                    <Badge>{mailbox.statutConnexion}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

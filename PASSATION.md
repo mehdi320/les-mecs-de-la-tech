@@ -234,3 +234,42 @@ Le point 7 bloque specifiquement le module de scoring de variantes
 - Module de scoring (z-test) ecrit avec seuils explicitement
   provisoires (risque/decision bloquante #7 toujours ouverte) ; non
   branche a un tableau de bord (depend de `ReponseEvenement`, V2).
+
+### Session 5 — design system UI/UX
+- Kit UI partage (`src/shared/ui/`) : `Button`/`SubmitButton` (etat de
+  chargement via `useFormStatus` — avant cette session, aucun clic ne
+  donnait de retour visuel pendant qu'une Server Action tournait),
+  `Field`/`Input`/`Textarea`/`Select`, `Card`, `Badge` (mapping
+  centralise statut -> couleur), `EmptyState`, `PageHeader`,
+  `StatCard`, `RiskScore` (score de risque toujours colore par palier,
+  jamais un chiffre nu), icones ligne dessinees a la main (pas de
+  dependance externe).
+  Palette `brand` (indigo, `tailwind.config.ts`), police Inter avec
+  fallback systeme.
+- Sidebar reconstruite (`src/shared/presentation/nav.tsx`, client
+  component) : etat actif par route, icone par module, panneau client
+  (nom, palier, statut DPA) — `sticky top-0 h-screen` pour rester
+  visible sur les pages longues (bug trouve en testant : sans ca, la
+  sidebar defilait avec le contenu et disparaissait sur la page
+  Sequences des qu'il y a plusieurs variantes).
+- Accueil transforme en vrai tableau de bord (compteurs mailboxes/
+  domaines/sequences/contacts/campagnes/suppressions, alerte DPA non
+  signe, message si aucune mailbox). Les 6 autres pages retravaillees
+  avec le kit UI : formulaires structures (`Field`), etats vides
+  distincts d'un tableau réellement vide, garde-fou "prerequis
+  manquants" sur Campagnes (les selects sequence/liste/mailbox vides
+  affichaient un formulaire inutilisable) plutot qu'un formulaire
+  silencieusement casse.
+- Bug de build trouve et corrige : le layout racine lit desormais le
+  client en base (panneau sidebar), ce qui faisait echouer
+  `npm run build` sur `/_not-found` avant toute migration (prerendu
+  statique tentant une requete SQL sur une base non encore migree) —
+  `export const dynamic = "force-dynamic"` ajoute au layout.
+- Validation visuelle par captures d'ecran (Playwright, donnees de
+  demo, pas commitees) sur les 7 pages ; `npm run build` et
+  `npm run typecheck` passent sans erreur.
+- Non fait cette session (a signaler, pas oublie) : pas de mode
+  sombre, pas de responsive mobile (dashboard interne desktop, comme
+  outboundDM-max) ; les toasts de succes/erreur restent a faire —
+  seul l'etat de chargement des boutons a ete traite pour le retour
+  d'action.
