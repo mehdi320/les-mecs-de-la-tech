@@ -76,6 +76,7 @@ export interface EnvoiEvenement {
   id: string;
   enrollmentId: string;
   mailboxId: string;
+  varianteId: string | null;
   horodatage: string;
   statutSmtp: string;
   messageId: string | null;

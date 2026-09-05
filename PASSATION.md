@@ -47,6 +47,14 @@ multi-client n'est pas dans le perimetre code cette session.
   jointure en lecture seule vers le module Envoi, statut d'opposition).
   Generateur de notification multilingue non code (V2, cf. SPEC.md
   section 6).
+- **Personnalisation / variantes A/B** (SPEC.md section 9) : generateur
+  d'objet+corps porte depuis outboundDM-max (`src/modules/envoi/domain/personnalisation/`),
+  rotation equilibree a l'envoi, template `{colonne}` rendu depuis
+  `Contact.donnees_additionnelles_json`. Module de scoring
+  (`scoring.ts`, z-test de proportions) ecrit mais pas branche a un
+  tableau de bord — depend de `ReponseEvenement` (module Delivrabilite,
+  V2, pas encore code) ; seuils provisoires clairement marques comme
+  tels dans le code, decision bloquante #7 toujours ouverte.
 - Chiffrement au repos des secrets de mailbox (AES-256-GCM,
   `src/shared/integration/secrets.ts`), requiert `APP_SECRET_KEY`.
 - Composition root unique : `src/shared/integration/container.ts` —
@@ -87,6 +95,17 @@ bout en bout sur le dev server local.
 5. Aucune authentification / session utilisateur : toutes les pages
    utilisent le client de demo. Bloquant pour tout usage multi-client
    reel.
+6. Rotation A/B non testee sous forte charge : `choisirVarianteEquilibree`
+   lit les compteurs a chaque envoi (pas de verrou), une course entre
+   deux envois strictement simultanes pour la meme etape peut
+   deconnecter tres legerement l'equilibre — negligeable au volume du
+   MVP, a revisiter si le planificateur temps reel (risque #3) envoie
+   en parallele.
+7. Les regles de vouvoiement/tutoiement du generateur de variantes
+   (`generator.ts`) ne couvrent qu'un nombre limite de tournures a
+   objet direct/indirect ("vous dire" -> "te dire") — une variante
+   generee reste **a relire avant activation**, comme le rappelle le
+   README d'outboundDM-max pour l'original DM.
 
 ## Decisions prises
 
@@ -136,11 +155,10 @@ Le point 7 bloque specifiquement le module de scoring de variantes
    deploiement expose a un reseau non controle.
 5. Authentification multi-client (risque #5), puis modules
    Delivrabilite complet et generateur de notification (V2).
-6. Generateur de variantes A/B (SPEC.md section 9) : obtenir l'acces
-   au repository `outboundDM-max` (ou une description precise de
-   l'interface du skill `dm-prospecting`) avant de porter le code ;
-   trancher le seuil de significativite statistique (decision
-   bloquante #7) avant d'implementer le module de scoring.
+6. Trancher le seuil de significativite statistique (decision
+   bloquante #7, SPEC.md section 9.4) puis brancher `scoring.ts` a un
+   tableau de bord une fois `ReponseEvenement` (module Delivrabilite,
+   V2) code — le generateur de variantes lui-meme est deja livre.
 
 ## Journal de session
 
@@ -182,6 +200,37 @@ Le point 7 bloque specifiquement le module de scoring de variantes
 - Modele de donnees etendu (SPEC.md 3.1) : nouvelle entite
   `SequenceEtapeVariante`, `EnvoiEvenement.variante_id`.
 - Pas de code ecrit cette session : `outboundDM-max` n'est pas dans le
-  perimetre des repos attaches (cf. prochaine etape #6) — l'ajouter ou
-  fournir une description precise de son interface avant de porter le
-  generateur.
+  perimetre des repos attaches — l'ajouter ou fournir une description
+  precise de son interface avant de porter le generateur.
+
+### Session 4 — port du generateur A/B vers l'email
+- Repository `mehdi320/outboundDM-max-` attache et clone dans
+  `/home/user/outbounddm-max-` (`add_repo` + `register_repo_root`).
+  Lecture du skill `dm-prospecting`, de `generator.ts`,
+  `copywritingRules.ts`, `metrics.ts`, `Queue.tsx`, `shared/types.ts`.
+- Port complet dans `src/modules/envoi/domain/personnalisation/`
+  (entites, `copywriting-rules.ts`, `generator.ts`, `scoring.ts`,
+  `repositories.ts`, `variante-selection.ts`) + `shared/domain/template.ts`
+  (rendu `{colonne}`, partage avec le contenu par defaut des etapes).
+  Migration `0002_variantes.sql` (`sequence_etape_variantes`,
+  `envoi_evenements.variante_id`). `EnrollmentService` etendu :
+  rotation equilibree + rendu de template avant envoi (comblait un
+  trou existant — aucun rendu de template n'etait fait avant cette
+  session, meme pour le contenu par defaut d'une etape).
+  UI : generation de variantes et changement de statut dans la page
+  Sequences.
+- Deux bugs reels trouves et corriges pendant le test manuel
+  (Playwright) : (1) les ouvertures de recentrage "reference-activite"
+  reintroduisaient un pronom auto-centre ("mon attention") sans
+  compenser par du "vous", annulant leur propre effet ; (2) le swap
+  vouvoiement<->tutoiement generique cassait la grammaire sur les
+  verbes a objet ("tu aider" au lieu de "t'aider") — ajout de cas
+  specifiques traites avant le remplacement generique, comme le fait
+  deja l'original DM pour "avec vous"/"pour vous"/"chez vous".
+- `npm run build` et `npm run typecheck` passent sans erreur ; flux
+  manuel valide en local (creation etape -> generation de 5 variantes
+  -> filtrage effectif du CTA a forte friction de la reference ->
+  changement de statut gagnante/perdante).
+- Module de scoring (z-test) ecrit avec seuils explicitement
+  provisoires (risque/decision bloquante #7 toujours ouverte) ; non
+  branche a un tableau de bord (depend de `ReponseEvenement`, V2).

@@ -11,3 +11,7 @@ Regle metier centrale a porter ici : un `Enrollment` ne peut avancer
 d'etape que si le contact ne figure pas dans le registre de
 suppression du client (dependance vers le domaine du module
 Conformite via une interface, pas un import direct).
+
+`personnalisation/` : generateur de variantes A/B (objet + corps),
+regles de copywriting et scoring statistique, adaptes du generateur
+d'outboundDM-max au format email (cf. SPEC.md section 9).

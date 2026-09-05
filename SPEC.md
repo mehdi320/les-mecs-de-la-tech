@@ -358,38 +358,70 @@ comportement si un contact n'a pas la colonne requise pour une
 variante — repli sur une variante sans cette donnee, ou exclusion du
 contact de la variante concernee.
 
-### 9.3 Reutilisation de l'architecture du generateur A/B (outboundDM-max)
+### 9.3 Reutilisation de l'architecture du generateur A/B (outboundDM-max) — implemente
 
-Le generateur de variantes reutilise l'architecture deja construite
-sur le projet **outboundDM-max** (skill `dm-prospecting`, lui-meme
-adapte du skill `cold-email` de coreyhaines31), adaptee du format DM
-(message unique) au format email (**objet + corps** generes ensemble,
-puisqu'un objet incoherent avec le corps degrade le taux d'ouverture
-independamment de la qualite du corps).
+Le repository `outboundDM-max` a ete attache a la session et lu :
+skill `.claude/skills/dm-prospecting/SKILL.md`, `src/utils/generator.ts`,
+`src/utils/copywritingRules.ts`, `src/utils/metrics.ts`,
+`src/components/Queue.tsx`, `shared/types.ts`. Le generateur de
+variantes est porte et adapte du format DM (message unique) au format
+email (**objet + corps** generes ensemble) dans
+`src/modules/envoi/domain/personnalisation/` :
 
-**Prerequis avant implementation** : cette session de travail n'a pas
-acces au repository `outboundDM-max` (hors perimetre des repos
-attaches). L'adaptation concrete du code nécessite soit l'ajout de ce
-repository a la session (pour lire et porter la logique existante),
-soit une description precise de son interface par l'utilisateur. Tant
-que l'un des deux n'est pas disponible, seule l'intention
-architecturale est documentee ici, pas le portage lui-meme.
+- `generator.ts` : mêmes 5 combinaisons structure x longueur x ton
+  qu'en DM (jamais le ton seul), objet variant en parallele du corps
+  (ex: structure "reference_activite" prefixe l'objet par la colonne
+  detectee, ex: `{dernier_post} — <objet de reference>`).
+- `copywriting-rules.ts` : regles ported (jargon, flatterie, urgence,
+  prix hors ouverture, CTA unique a faible friction, rejet des
+  demandes d'appel/rdv au premier contact) + regles specifiques a
+  l'email (`lintSujet` : majuscules, exclamation, longueur, prix dans
+  l'objet). Registre par defaut **vouvoiement** (norme du cold email
+  B2B francais), contre le tutoiement par defaut du skill DM — l'axe
+  ton bascule dans les deux sens (`formel`/`familier`).
+- `variante-selection.ts` : rotation equilibree entre variantes
+  actives par compteur d'envois (adapte du round-robin
+  `buildQueue()`), plus resilient qu'un simple `i % n` a un traitement
+  par lots interrompu.
+- `scoring.ts` : cf. 9.4.
 
-### 9.4 Seuil de significativite statistique — contrainte, pas encore tranchee
+Aucune donnee n'est inventee : la colonne de personnalisation utilisee
+par la structure "reference_activite" est detectee dans le texte de
+reference lui-meme (`{colonne}`), jamais fabriquee ni recuperee par
+scraping.
 
-Le taux de reponse par email est structurellement plus faible que sur
-DM/LinkedIn (canal plus sature, moins de contexte social). Un seuil de
-significativite calibre sur les volumes et taux de reponse du DM
-sous-estimerait le risque de declarer une variante gagnante par bruit
-statistique plutot que par effet reel. Consequence : **le seuil de
-significativite (et la taille d'echantillon minimale associee) doit
-etre strictement plus eleve pour l'email que celui utilise en DM**,
-et reste a definir avant l'implementation du module de scoring —
-c'est la decision bloquante #7 de la section 7. Ce module de scoring
-s'appuiera sur `EnvoiEvenement.variante_id` (section 3.1) croise avec
-les evenements de reponse du module Delivrabilite (`ReponseEvenement`,
-section 3.4) pour calculer, par variante, un taux de reponse et sa
-significativite.
+`SequenceEtapeVariante` (section 3.1) est persistee et assignee a
+l'envoi via `EnrollmentService` : rotation equilibree si des variantes
+actives existent pour l'etape, repli sur le contenu par defaut de
+l'etape sinon ; `EnvoiEvenement.variante_id` trace la variante
+effectivement envoyee.
+
+### 9.4 Seuil de significativite statistique — fonction ecrite, seuils non tranches
+
+outboundDM-max ne fait **aucun test de significativite** :
+`src/utils/metrics.ts` declare "meilleur script" le taux de reponse
+brut le plus eleve parmi les scripts ayant depasse un minimum fixe
+d'envois (`MIN_DM_FOR_ELIGIBILITY = 10`). Adopter ce seuil tel quel
+pour l'email declarerait des variantes "gagnantes" par bruit
+statistique plutot que par effet reel, le taux de reponse email etant
+structurellement plus faible que le DM.
+
+`scoring.ts` (module Envoi, `personnalisation/scoring.ts`) implemente
+donc un vrai test de significativite (z-test bilateral de comparaison
+de deux proportions, approximation d'Abramowitz-Stegun de la fonction
+d'erreur, sans dependance externe) plutot que le comptage minimal
+d'outboundDM-max. **Les valeurs `SEUIL_SIGNIFICATIVITE_PROVISOIRE`
+(alpha = 0.01) et `ENVOIS_MIN_PROVISOIRE` (200 par variante) sont des
+placeholders explicitement marques comme tels dans le code — ce ne
+sont pas la decision bloquante #7 de la section 7**, qui reste
+entiere. Le test lui-meme (`comparerVariantes`) est correct et
+utilisable des que ces deux constantes seront validees.
+
+Ce module n'est pas encore branche a un tableau de bord : il depend
+des evenements de reponse du module Delivrabilite (`ReponseEvenement`,
+section 3.4), qui est V2 et n'est pas encore code (cf. PASSATION.md).
+`comparerVariantes` est une fonction pure, testable independamment,
+prete a etre branchee des que `ReponseEvenement` existe.
 
 ### 9.5 V2 (non developpe maintenant) : integration avec des fournisseurs d'enrichissement tiers conformes
 

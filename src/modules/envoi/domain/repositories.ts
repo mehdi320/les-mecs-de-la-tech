@@ -67,8 +67,11 @@ export interface EnvoiEvenementRepository {
   create(input: {
     enrollmentId: string;
     mailboxId: string;
+    varianteId: string | null;
     statutSmtp: string;
     messageId: string | null;
   }): EnvoiEvenement;
   listByEnrollment(enrollmentId: string): EnvoiEvenement[];
+  /** Nombre d'envois par variante — sert la rotation equilibree (cf. personnalisation/variante-selection.ts). */
+  countByVariantes(varianteIds: string[]): Record<string, number>;
 }

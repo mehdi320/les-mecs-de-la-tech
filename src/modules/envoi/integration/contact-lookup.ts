@@ -10,4 +10,13 @@ export class SqliteContactLookup implements ContactLookup {
       | undefined;
     return row?.email ?? null;
   }
+
+  getDonneesAdditionnelles(contactId: string): Record<string, unknown> {
+    const row = this.db
+      .prepare("SELECT donnees_additionnelles_json, email FROM contacts WHERE id = ?")
+      .get(contactId) as { donnees_additionnelles_json: string; email: string } | undefined;
+    if (!row) return {};
+    const donnees = JSON.parse(row.donnees_additionnelles_json) as Record<string, unknown>;
+    return { ...donnees, email: row.email };
+  }
 }

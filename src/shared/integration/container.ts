@@ -10,6 +10,7 @@ import { SqliteEnvoiEvenementRepository } from "@/modules/envoi/integration/envo
 import { SqliteContactLookup } from "@/modules/envoi/integration/contact-lookup";
 import { MailboxSender } from "@/modules/envoi/integration/mailbox-sender";
 import { EnrollmentService } from "@/modules/envoi/domain/enrollment-service";
+import { SqliteSequenceEtapeVarianteRepository } from "@/modules/envoi/integration/sequence-etape-variante-repository";
 
 import { SqliteListeImporteeRepository } from "@/modules/verification/integration/liste-importee-repository";
 import { SqliteContactRepository } from "@/modules/verification/integration/contact-repository";
@@ -45,6 +46,7 @@ export function getContainer() {
   const envoiEvenements = new SqliteEnvoiEvenementRepository(db);
   const contactLookup = new SqliteContactLookup(db);
   const mailboxSender = new MailboxSender(mailboxes);
+  const sequenceEtapeVariantes = new SqliteSequenceEtapeVarianteRepository(db);
 
   const listesImportees = new SqliteListeImporteeRepository(db);
   const contacts = new SqliteContactRepository(db);
@@ -62,6 +64,7 @@ export function getContainer() {
     suppressionChecker,
     contactLookup,
     mailboxSender,
+    sequenceEtapeVariantes,
   );
 
   const verificationService = new VerificationService(
@@ -79,7 +82,7 @@ export function getContainer() {
 
   return {
     clients,
-    envoi: { mailboxes, domaines, sequences, campagnes, enrollments, envoiEvenements, enrollmentService },
+    envoi: { mailboxes, domaines, sequences, campagnes, enrollments, envoiEvenements, enrollmentService, sequenceEtapeVariantes },
     verification: { listesImportees, contacts, verificationResultats, verificationService, importerListeService },
     conformite: { suppressions, auditExports, auditExportService },
   };
