@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getContainer } from "@/shared/integration/container";
-import { genererVariantesEmail } from "@/modules/envoi/domain/personnalisation/generator";
+import { genererVariantesEmail, genererVariantesRelance } from "@/modules/envoi/domain/personnalisation/generator";
 import { extraireChampsPersonnalisation } from "@/shared/domain/template";
 import type { StatutVariante } from "@/modules/envoi/domain/personnalisation/entities";
 
@@ -12,14 +12,37 @@ export async function genererVariantesPourEtape(formData: FormData): Promise<voi
   const sequenceEtapeId = String(formData.get("sequenceEtapeId") ?? "");
   const sujetReference = String(formData.get("sujetReference") ?? "");
   const corpsReference = String(formData.get("corpsReference") ?? "");
-  if (!sequenceEtapeId || !sujetReference.trim() || !corpsReference.trim()) return;
+  const inclureOffre = formData.get("inclureOffre") === "on";
+  if (!sequenceEtapeId || !corpsReference.trim()) return;
 
   const { envoi } = getContainer();
-  const variantes = genererVariantesEmail(sujetReference, corpsReference);
+  const etape = envoi.sequences.findEtapeById(sequenceEtapeId);
+  if (!etape) return;
+
+  // Etape de rang 0 = premier contact (objet libre) ; toute etape
+  // suivante = relance, dont l'objet reprend toujours celui du
+  // premier contact ("Re : ...") — cf. SPEC.md section 9.6.
+  let variantes;
+  if (etape.ordre === 0) {
+    if (!sujetReference.trim()) return;
+    variantes = genererVariantesEmail(sujetReference, corpsReference);
+  } else {
+    const premiereEtape = envoi.sequences.listEtapes(etape.sequenceId).find((e) => e.ordre === 0);
+    const sujetPremierContact = premiereEtape?.sujet ?? sujetReference;
+    if (!sujetPremierContact.trim()) return;
+    variantes = genererVariantesRelance(sujetPremierContact, corpsReference, { inclureOffre });
+  }
+
   const existantes = envoi.sequenceEtapeVariantes.listBySequenceEtape(sequenceEtapeId).length;
 
+  // Un second cycle de generation (ex: nouveau message de reference)
+  // ajoute des variantes plutot que d'en ecraser : les noms
+  // continuent la sequence A-E puis V6, V7... — jamais de retour a
+  // "A" via un modulo, qui entrerait en collision avec la variante A
+  // deja existante (contrainte d'unicite sequence_etape_id + nom).
   variantes.forEach((v, i) => {
-    const nom = NOMS[(existantes + i) % NOMS.length] ?? `V${existantes + i + 1}`;
+    const index = existantes + i;
+    const nom = NOMS[index] ?? `V${index + 1}`;
     envoi.sequenceEtapeVariantes.create({
       sequenceEtapeId,
       nom,

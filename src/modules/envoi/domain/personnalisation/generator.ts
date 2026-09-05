@@ -9,6 +9,7 @@ import {
   ensureProspectFirst,
   normalizeSingleCta,
   prependProblemLinkedOpener,
+  prependRelanceOpener,
   stripFillerSentences,
   stripFlatteryOpeners,
   stripHighFrictionCtaSentences,
@@ -39,12 +40,15 @@ const VOUS_TO_TU: [string, string][] = [
   ["vous demander", "te demander"],
   ["vous envoyer", "t'envoyer"],
   ["vous proposer", "te proposer"],
+  ["vous relancer", "te relancer"],
+  ["vous recontacter", "te recontacter"],
   ["vous-meme", "toi-meme"],
   ["votre", "ton"],
   ["vos", "tes"],
   ["avec vous", "avec toi"],
   ["pour vous", "pour toi"],
   ["chez vous", "chez toi"],
+  ["vers vous", "vers toi"],
   ["vous", "tu"],
   ["bonjour", "hey"],
 ];
@@ -62,10 +66,13 @@ const TU_TO_VOUS: [string, string][] = [
   ["te demander", "vous demander"],
   ["t'envoyer", "vous envoyer"],
   ["te proposer", "vous proposer"],
+  ["te relancer", "vous relancer"],
+  ["te recontacter", "vous recontacter"],
   ["toi-meme", "vous-meme"],
   ["ton", "votre"],
   ["ta", "votre"],
   ["tes", "vos"],
+  ["vers toi", "vers vous"],
   ["toi", "vous"],
   ["te", "vous"],
   ["tu", "vous"],
@@ -158,6 +165,65 @@ export function genererVariantesEmail(sujetReference: string, corpsReference: st
     }
 
     let sujet = buildSujetVariante(sujetPropre, structure, ancre);
+    if (tone === "formel") sujet = applyReplacements(sujet, TU_TO_VOUS);
+    else if (tone === "familier") sujet = applyReplacements(sujet, VOUS_TO_TU);
+
+    return { sujet, corps, structure, longueur, tone };
+  });
+}
+
+/**
+ * Genere 5 variantes de relance (follow-up), cf. SPEC.md section 9.6.
+ * A la difference du premier contact :
+ * - l'objet est toujours "Re : {sujet du premier contact}", jamais
+ *   varie entre les 5 variantes — un objet different a chaque relance
+ *   casse le fil de conversation cote client mail et se lit comme un
+ *   nouveau cold open plutot qu'un suivi ;
+ * - le corps reconnait systematiquement qu'il s'agit d'une relance
+ *   (banque `RELANCE_OPENERS`), jamais l'ouverture "reference-activite"
+ *   du premier contact ;
+ * - `inclureOffre` desactive le retrait du prix/de l'offre : c'est la
+ *   place naturelle pour reveler le detail volontairement ecarte du
+ *   premier message (cf. regle CTA du skill dm-prospecting).
+ */
+export function genererVariantesRelance(
+  sujetPremierContact: string,
+  corpsReference: string,
+  options: { inclureOffre?: boolean } = {},
+): VarianteGeneree[] {
+  const sujetPropre = sujetPremierContact.trim();
+  const corpsPropre = corpsReference.trim();
+  if (!sujetPropre || !corpsPropre) return [];
+
+  const champs = extraireChampsPersonnalisation(corpsPropre);
+  const ancre = champs.length > 0 ? `{${champs[0]}}` : null;
+
+  const sentences = splitSentences(corpsPropre);
+  const courteBase = buildCourte(sentences);
+  const sujetRelance = /^re\s*:/iu.test(sujetPropre) ? sujetPropre : `Re : ${sujetPropre}`;
+
+  return COMBOS.map(({ structure, longueur, tone }, i) => {
+    let corps = longueur === "courte" ? courteBase : corpsPropre;
+
+    corps = prependRelanceOpener(corps, ancre, i);
+
+    corps = stripFillerSentences(corps);
+    corps = stripFlatteryOpeners(corps);
+    corps = stripUrgencyLanguage(corps);
+    if (!options.inclureOffre) corps = stripPricingDetails(corps);
+    corps = stripHighFrictionCtaSentences(corps);
+    corps = stripJargon(corps);
+    corps = capEmojis(corps);
+
+    corps = normalizeSingleCta(corps, structure !== "affirmation_directe", i);
+
+    if (tone === "formel") {
+      corps = applyReplacements(corps, TU_TO_VOUS);
+    } else if (tone === "familier") {
+      corps = applyReplacements(corps, VOUS_TO_TU);
+    }
+
+    let sujet = sujetRelance;
     if (tone === "formel") sujet = applyReplacements(sujet, TU_TO_VOUS);
     else if (tone === "familier") sujet = applyReplacements(sujet, VOUS_TO_TU);
 

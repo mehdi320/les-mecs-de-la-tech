@@ -42,6 +42,7 @@ export interface SequenceRepository {
     corps: string;
   }): SequenceEtape;
   listEtapes(sequenceId: string): SequenceEtape[];
+  findEtapeById(etapeId: string): SequenceEtape | null;
   /** Cascade en base vers les etapes et leurs variantes (cf. migrations). */
   delete(id: string): void;
   deleteEtape(etapeId: string): void;

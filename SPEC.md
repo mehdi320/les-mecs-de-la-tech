@@ -438,3 +438,47 @@ ne fait que consommer les colonnes resultantes, exactement comme en
 (connexion du compte Clay/Apollo/Cognism du client) versus simple
 documentation d'usage (le client exporte lui-meme et importe le CSV
 enrichi, deja fonctionnel des V1).
+
+### 9.6 Relances (follow-up) — implemente
+
+Une `SequenceEtape` de rang (`ordre`) 0 est le premier contact ; toute
+etape suivante est une relance (`typeEtape()`, derive de `ordre`,
+jamais stocke separement). Le generateur de variantes traite les deux
+cas differemment, avec une fonction dediee
+`genererVariantesRelance()` distincte de `genererVariantesEmail()` :
+
+- **Objet fixe, jamais varie entre les 5 variantes** : toujours
+  `Re : {objet du premier contact}`. Contrairement au premier contact
+  (ou l'objet varie selon la structure de la variante), faire varier
+  l'objet d'une relance casserait le fil de conversation cote client
+  mail et se lirait comme un nouveau cold open plutot qu'un suivi —
+  l'objet du premier contact fait donc autorite, jamais celui de
+  l'etape immediatement precedente (les clients mail threadent sur
+  l'objet d'origine).
+- **Ouverture systematiquement "relance"** (banque `RELANCE_OPENERS`,
+  distincte de la banque de premier contact) : toute variante de
+  relance reconnait explicitement qu'il s'agit d'un suivi, jamais une
+  ouverture de cold open recyclee.
+- **Lint anti-relance-vide** (`lintRelance`, port de la regle du skill
+  `dm-prospecting` — "juste pour remonter dans ta boite" ne donne
+  aucune raison de repondre) : signale une relance qui ne fait que
+  reprendre une formule de remontee ("je me permets de relancer",
+  "petit rappel"...) sans ajouter d'angle, de preuve, ou l'offre
+  volontairement ecartee du premier message. Purement indicatif.
+- **Case a cocher "inclure l'offre/le prix"** : desactive le retrait
+  automatique du prix pour cette generation — la relance est
+  precisement l'endroit designe pour reveler un detail volontairement
+  absent du premier contact (meme principe que la regle CTA du skill
+  DM : prix/offre jamais dans l'ouverture, reserves a une relance
+  dediee).
+- **Cadence indicative, jamais bloquante** : `CADENCE_SUGGEREE_JOURS`
+  (0, 3, 7, 12, 18 jours) pre-remplit le delai suggere a l'ajout d'une
+  etape ; `TOUCHES_RECOMMANDEES_MAX` (5) declenche un avertissement
+  textuel au-dela de 5 touches au total — a l'inverse du DM (skill
+  dm-prospecting plafonne a 1-2 relances, soit 2-3 touches), le cold
+  email supporte des sequences de 3 a 5 touches sans schema de
+  plafond dur impose.
+
+Aucune nouvelle decision bloquante : ces choix (banque d'ouvertures,
+seuils de cadence/lint) sont des parametres de produit revisables,
+pas des points juridiques ou d'architecture.

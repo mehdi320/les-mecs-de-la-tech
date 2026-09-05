@@ -25,6 +25,16 @@ function phraseRegex(phrase: string, flags = "iu"): RegExp {
   return new RegExp(escaped, flags);
 }
 
+// Alternance vouvoiement/tutoiement pour les phrases-declencheurs qui
+// portent un pronom : le lint tourne sur le texte final, apres le
+// swap de ton eventuel (formel/familier, cf. generator.ts) — un
+// declencheur ecrit uniquement en vouvoiement raterait sa variante
+// tutoyee.
+function phraseRegexRegistres(phrases: string[], flags = "iu"): RegExp {
+  const escaped = phrases.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(escaped.join("|"), flags);
+}
+
 // --- Pronoms : le prospect doit dominer ---
 const SELF_PRONOUNS = ["je", "j'ai", "moi", "mon", "ma", "mes", "nous", "notre", "nos"];
 const PROSPECT_PRONOUNS = [
@@ -68,6 +78,34 @@ function choisirOuverture(ancre: string | null, seed: number): string {
   const banque = ancre ? PROBLEM_LINK_OPENERS_AVEC_ANCRE : PROBLEM_LINK_OPENERS_SANS_ANCRE;
   const modele = banque[seed % banque.length]!;
   return ancre ? modele.replace("{{ANCRE}}", ancre) : modele;
+}
+
+// --- Ouvertures de relance (follow-up), cf. SPEC.md section 9.6 ---
+// Reference explicitement le message precedent (jamais une ouverture
+// de premier contact recyclee) : une relance qui se lit comme un
+// nouveau cold open perd le fil de la conversation. Meme contrainte
+// que les ouvertures de premier contact : jamais de "?" final, jamais
+// de pronom auto-centre ajoute sans "vous" en face.
+const RELANCE_OPENERS_AVEC_ANCRE = [
+  "Je me permets de revenir vers vous suite a mon message a propos de {{ANCRE}}.",
+  "Petit complement a mon precedent message sur {{ANCRE}}.",
+  "Je reviens vers vous avec un element qui devrait clarifier le lien avec {{ANCRE}}.",
+];
+
+const RELANCE_OPENERS_SANS_ANCRE = [
+  "Je me permets de revenir vers vous suite a mon precedent message.",
+  "Petit complement a mon message de la semaine derniere.",
+  "Je remonte ce fil avec un element qui devrait clarifier les choses.",
+];
+
+export function choisirOuvertureRelance(ancre: string | null, seed: number): string {
+  const banque = ancre ? RELANCE_OPENERS_AVEC_ANCRE : RELANCE_OPENERS_SANS_ANCRE;
+  const modele = banque[seed % banque.length]!;
+  return ancre ? modele.replace("{{ANCRE}}", ancre) : modele;
+}
+
+export function prependRelanceOpener(text: string, ancre: string | null, seed: number): string {
+  return `${choisirOuvertureRelance(ancre, seed)}\n\n${text.trim()}`;
 }
 
 // Recentre le message sur le prospect si "je" y domine, en ancrant
@@ -326,6 +364,50 @@ export function lintSujet(sujet: string): LintIssue[] {
   }
   if (PRICING_TRIGGERS.some((re) => re.test(sujet))) {
     issues.push({ code: "sujet_prix", message: "Detail de prix dans l'objet — a eviter." });
+  }
+
+  return issues;
+}
+
+// --- Relance vide : jamais une simple remontee sans element nouveau ---
+// Port de la regle du skill dm-prospecting ("Juste pour remonter dans
+// ta boite" ne donne aucune raison de repondre — jamais une relance
+// pure) : une relance doit ajouter un angle, une preuve, ou l'offre/
+// le prix volontairement ecarte du premier message (cf. SPEC.md
+// section 9.6). Signal purement indicatif — un mot compte court n'est
+// pas forcement fautif, mais merite une relecture.
+const BUMP_ONLY_TRIGGERS: { pattern: RegExp; label: string }[] = [
+  {
+    pattern: phraseRegexRegistres(["je me permets de vous relancer", "je me permets de te relancer"]),
+    label: "je me permets de vous/te relancer",
+  },
+  { pattern: phraseRegex("je me permets de relancer"), label: "je me permets de relancer" },
+  { pattern: phraseRegex("petit rappel"), label: "petit rappel" },
+  {
+    pattern: phraseRegexRegistres(["sans nouvelles de votre part", "sans nouvelles de ta part"]),
+    label: "sans nouvelles de votre/ta part",
+  },
+  { pattern: phraseRegex("je voulais faire remonter"), label: "je voulais faire remonter" },
+  { pattern: phraseRegex("juste pour relancer"), label: "juste pour relancer" },
+  {
+    pattern: phraseRegexRegistres(["je reviens vers vous", "je reviens vers toi"]),
+    label: "je reviens vers vous/toi",
+  },
+];
+
+const MOTS_MIN_RELANCE_AVEC_VALEUR_AJOUTEE = 25;
+
+export function lintRelance(corps: string): LintIssue[] {
+  const issues: LintIssue[] = [];
+  const wordCount = corps.trim().split(/\s+/).filter(Boolean).length;
+  const contientBumpTrigger = BUMP_ONLY_TRIGGERS.some(({ pattern }) => pattern.test(corps));
+
+  if (contientBumpTrigger && wordCount < MOTS_MIN_RELANCE_AVEC_VALEUR_AJOUTEE) {
+    issues.push({
+      code: "relance_vide",
+      message:
+        "Cette relance ressemble a une simple remontee sans element nouveau — ajoutez un angle, une preuve, ou l'offre volontairement ecartee du premier message.",
+    });
   }
 
   return issues;

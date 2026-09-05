@@ -75,6 +75,11 @@ export class SqliteSequenceRepository implements SequenceRepository {
     return rows.map(toEtape);
   }
 
+  findEtapeById(etapeId: string): SequenceEtape | null {
+    const row = this.db.prepare("SELECT * FROM sequence_etapes WHERE id = ?").get(etapeId) as SequenceEtapeRow | undefined;
+    return row ? toEtape(row) : null;
+  }
+
   delete(id: string): void {
     this.db.prepare("DELETE FROM sequences WHERE id = ?").run(id);
   }

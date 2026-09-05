@@ -311,3 +311,46 @@ Le point 7 bloque specifiquement le module de scoring de variantes
   potentiellement long n'apportait pas assez de valeur pour le temps
   investi cette session ; a reconsiderer si le besoin se confirme.
 - `npm run build` et `npm run typecheck` passent sans erreur.
+
+### Session 7 — relances (follow-up) et variantes de relance
+- Une `SequenceEtape` de rang 0 est le premier contact, toute etape
+  suivante une relance (`typeEtape()`, derive de `ordre`). Nouvelle
+  fonction `genererVariantesRelance()` (distincte de
+  `genererVariantesEmail()`, cf. SPEC.md section 9.6) : objet fixe
+  "Re : {objet du premier contact}" jamais varie entre les 5 variantes
+  (contrairement au premier contact), banque d'ouvertures de relance
+  dediee, case a cocher pour inclure volontairement le prix/l'offre
+  (reserve normalement a une relance), lint `relance_vide` portant la
+  regle du skill dm-prospecting ("jamais une simple remontee sans
+  element nouveau"). Cadence indicative (0/3/7/12/18 jours) et seuil
+  de 5 touches recommandees (non bloquant), a l'inverse du plafond dur
+  de 1-2 relances du DM.
+- Trois bugs reels trouves et corriges en testant (Playwright,
+  scenarios premier contact + relance) :
+  1. Grammaire cassee au swap tutoiement sur les verbes introduits par
+     la relance ("vous relancer" -> "tu relancer" au lieu de "te
+     relancer", "vers vous" -> non traite) — ajout des cas manquants
+     dans les tables de swap (meme categorie de bug que la session 4,
+     nouveaux verbes introduits par le vocabulaire de relance).
+  2. Le lint anti-relance-vide ne detectait les formules-declencheurs
+     ("je me permets de vous relancer"...) qu'en vouvoiement : une
+     variante tutoyee par le swap de ton echappait au lint. Regex
+     desormais a double registre (`phraseRegexRegistres`).
+  3. **Regenerer des variantes pour une etape qui en a deja 5
+     provoquait un crash serveur** (contrainte d'unicite
+     `sequence_etape_id + nom` violee : le nommage A-E rebouclait via
+     un modulo au lieu de continuer en V6, V7...). Corrige — un
+     second cycle de generation ajoute desormais des variantes plutot
+     que d'entrer en collision. Bug preexistant (pas introduit cette
+     session), trouve en testant le flux de relance en conditions
+     repetees.
+- `pricing_in_opener` (lint general) filtre sur les variantes de
+  relance : ce signal part du principe qu'un premier contact ne doit
+  jamais porter de prix, ce qui n'a pas lieu d'etre sur une relance
+  (l'endroit designe pour le reveler).
+- `npm run build` et `npm run typecheck` passent sans erreur ; verifie
+  manuellement (Playwright) : badge de type d'etape correct, objet
+  identique entre les 5 variantes de relance et prefixe "Re : ",
+  lint relance_vide se declenche sur un corps bump-only et pas sur un
+  corps substantiel, case "inclure l'offre" preserve effectivement un
+  prix normalement retire.

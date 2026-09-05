@@ -48,3 +48,38 @@ export interface VarianteGeneree {
   longueur: Longueur;
   tone: Tone;
 }
+
+/**
+ * Une etape de rang 0 est le premier contact ; toute etape suivante
+ * est une relance (follow-up) — cf. SPEC.md section 9.6. Derive de
+ * `SequenceEtape.ordre`, jamais stocke separement : une seule source
+ * de verite pour la position dans la sequence.
+ */
+export type TypeEtape = "premier_contact" | "relance";
+
+export function typeEtape(ordre: number): TypeEtape {
+  return ordre === 0 ? "premier_contact" : "relance";
+}
+
+export const TYPE_ETAPE_LABELS: Record<TypeEtape, string> = {
+  premier_contact: "Premier contact",
+  relance: "Relance",
+};
+
+/**
+ * Convention cold email B2B (a l'inverse du DM, plafonne a 1-2
+ * relances par le skill dm-prospecting) : au-dela de ~5 touches au
+ * total, le taux de reponse marginal decroit fortement. Seuil
+ * indicatif affiche a l'utilisateur, jamais bloquant.
+ */
+export const TOUCHES_RECOMMANDEES_MAX = 5;
+
+/**
+ * Cadence indicative en jours depuis le premier contact (touche 1 =
+ * J+0), pour une sequence de cold email B2B classique : espacement
+ * croissant, jamais moins de quelques jours entre deux relances pour
+ * ne pas paraitre insistant. Purement indicatif (pre-remplit le champ
+ * delai, jamais impose) — chaque produit/audience peut justifier un
+ * rythme different.
+ */
+export const CADENCE_SUGGEREE_JOURS = [0, 3, 7, 12, 18];
